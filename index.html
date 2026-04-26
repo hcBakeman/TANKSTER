@@ -1,45 +1,33 @@
 <!DOCTYPE html>
-<html lang="fi">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TANKSTER - Battle Arena</title>
+    <title>2D Top-Down Tank Combat - Rekyyli Päivitys</title>
     <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
     <style>
-        body { margin: 0; overflow: hidden; background-color: #0a0a0a; color: #eee; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; user-select: none; }
+        body { margin: 0; overflow: hidden; background-color: #111; color: #fff; font-family: monospace; user-select: none; }
         canvas { display: block; }
-        .ui-layer { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; pointer-events: none; z-index: 10; }
+        .ui-layer { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; pointer-events: none; }
         .interactive { pointer-events: auto; }
-        .panel { background: rgba(20, 20, 20, 0.9); padding: 30px; border: 2px solid #444; border-radius: 12px; box-shadow: 0 0 30px #000; }
+        .panel { background: rgba(0, 0, 0, 0.85); padding: 20px; border: 2px solid #444; border-radius: 8px; box-shadow: 0 0 15px #000; }
         
-        #menu, #lobby, #match-over { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); display: flex; flex-direction: column; gap: 15px; min-width: 350px; }
-        input, select, button { padding: 12px; font-size: 16px; background: #222; color: #fff; border: 1px solid #555; border-radius: 6px; }
-        button { cursor: pointer; background: #3a3a3a; font-weight: bold; transition: background 0.2s; }
-        button:hover { background: #555; }
-        #btnHost { background: #c0392b; border: none; }
-        #btnHost:hover { background: #e74c3c; }
+        #menu, #lobby, #match-over { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); display: flex; flex-direction: column; gap: 10px; min-width: 300px; }
+        input, select, button { padding: 8px; font-family: monospace; font-size: 16px; background: #222; color: #fff; border: 1px solid #555; }
+        button { cursor: pointer; background: #444; font-weight: bold; }
+        button:hover { background: #666; }
         
         #hud { position: absolute; top: 0; left: 0; width: 100%; height: 100%; padding: 20px; box-sizing: border-box; display: none; }
-        .hud-top { display: flex; justify-content: center; font-size: 28px; font-weight: bold; text-shadow: 2px 2px 4px #000; color: #f1c40f; }
+        .hud-top { display: flex; justify-content: center; font-size: 24px; font-weight: bold; text-shadow: 2px 2px 0 #000; }
+        .hud-bottom { position: absolute; bottom: 20px; left: 20px; }
+        .weapon-info { font-size: 18px; text-shadow: 1px 1px 0 #000; }
         
-        .hud-center { 
-            position: absolute; bottom: 40px; left: 50%; transform: translateX(-50%); 
-            display: flex; flex-direction: column; align-items: center; gap: 8px;
-            text-align: center;
-        }
-        .weapon-label { font-size: 24px; font-weight: bold; color: #e74c3c; text-transform: uppercase; letter-spacing: 2px; text-shadow: 0 0 10px rgba(231, 76, 60, 0.5); }
-        .reload-status { font-size: 14px; color: #aaa; font-weight: bold; }
-        
-        .loader-container { position: relative; width: 70px; height: 70px; }
-        .loader-svg { transform: rotate(-90deg); width: 100%; height: 100%; }
-        .loader-bg { fill: none; stroke: #222; stroke-width: 6; }
-        .loader-fill { fill: none; stroke: #2ecc71; stroke-width: 6; stroke-dasharray: 201; stroke-dashoffset: 201; transition: stroke-dashoffset 0.1s linear; }
-
-        #minimap-container { position: absolute; bottom: 20px; right: 20px; width: 180px; height: 180px; border: 2px solid #555; background: rgba(0,0,0,0.7); border-radius: 8px; overflow: hidden; }
+        #minimap-container { position: absolute; bottom: 20px; right: 20px; width: 150px; height: 150px; border: 2px solid #555; background: rgba(0,0,0,0.5); }
         #minimap { width: 100%; height: 100%; }
-
-        .copy-badge { background: #27ae60; padding: 4px 8px; border-radius: 4px; font-size: 12px; cursor: pointer; margin-left: 10px; }
+        
         .hidden { display: none !important; }
+        h1, h2 { margin: 0 0 10px 0; text-align: center; }
+        .player-row { display: flex; justify-content: space-between; align-items: center; background: #222; padding: 5px; margin-bottom: 5px; }
     </style>
 </head>
 <body>
@@ -47,64 +35,70 @@
     <canvas id="gameCanvas"></canvas>
 
     <div class="ui-layer">
+        
         <div id="menu" class="panel interactive">
-            <h1 style="margin:0; color:#e74c3c;">TANKSTER</h1>
-            <p style="text-align:center; margin-bottom:10px; color:#888;">Battle Arena</p>
-            <label>Pelaajan nimi:</label>
-            <input type="text" id="playerName" value="Pelaaja">
-            <label>Karttasiemen (Seed):</label>
-            <input type="text" id="mapSeed" value="Arena1">
-            <hr style="width:100%; border-color:#333;">
-            <button id="btnHost">LUO PELI (HOST)</button>
-            <div style="display:flex; gap:5px;">
-                <input type="text" id="hostIdInput" placeholder="Syötä Host ID" style="flex:1;">
-                <button id="btnJoin">LIITY</button>
-            </div>
-            <p id="menuStatus" style="color: #f1c40f; text-align: center; font-size: 14px;"></p>
+            <h1>TANK COMBAT</h1>
+            <label>Player Name:</label>
+            <input type="text" id="playerName" value="Player">
+            <label>Map Seed:</label>
+            <input type="text" id="mapSeed" value="secret_seed_123">
+            
+            <hr style="width:100%; border-color:#444;">
+            
+            <h3>Host Game</h3>
+            <label>Match Mode:</label>
+            <select id="matchMode">
+                <option value="3">Best of 3</option>
+                <option value="5">Best of 5</option>
+                <option value="10">Best of 10</option>
+            </select>
+            <button id="btnHost">Create & Host Game</button>
+            
+            <hr style="width:100%; border-color:#444;">
+            
+            <h3>Join Game</h3>
+            <label>Host ID:</label>
+            <input type="text" id="hostIdInput" placeholder="Paste Host ID here">
+            <button id="btnJoin">Join Game</button>
+            
+            <p id="menuStatus" style="color: yellow; text-align: center;"></p>
         </div>
 
         <div id="lobby" class="panel interactive hidden">
-            <h2>AULA</h2>
-            <p style="text-align:center;">ID: <strong id="displayHostId" style="color: #2ecc71;"></strong> 
-            <span class="copy-badge" id="btnCopyId">KOPIOI</span></p>
-            <div id="playerList" style="margin: 10px 0;"></div>
-            <button id="btnStartGame" style="background:#27ae60; color:white;">ALOITA TAISTELU</button>
+            <h2>LOBBY (Host)</h2>
+            <p>Your Host ID (Share this): <br><strong id="displayHostId" style="color: #0f0; user-select: all;"></strong></p>
+            <div id="playerList"></div>
+            <button id="btnStartGame" style="margin-top:15px; background:#28a745;">Start Match</button>
         </div>
 
         <div id="hud">
             <div class="hud-top" id="scoreBoard">P1: 0 | P2: 0</div>
-            
-            <div class="hud-center">
-                <div id="weaponDisplay" class="weapon-label">ODOTETAAN...</div>
-                <div class="loader-container">
-                    <svg class="loader-svg">
-                        <circle class="loader-bg" cx="35" cy="35" r="32"></circle>
-                        <circle id="reload-circle" class="loader-fill" cx="35" cy="35" r="32"></circle>
-                    </svg>
-                </div>
-                <div id="reload-text" class="reload-status">READY</div>
+            <div class="hud-bottom">
+                <div class="weapon-info" id="hpDisplay" style="color: #0f0;">HP: 100</div>
+                <div class="weapon-info" id="weaponDisplay">Weapon: 20mm Cannon</div>
+                <div class="weapon-info" id="reloadDisplay">Ready</div>
             </div>
-
             <div id="minimap-container">
                 <canvas id="minimap"></canvas>
             </div>
         </div>
 
         <div id="match-over" class="panel interactive hidden">
-            <h1 id="winnerText">VOITTO!</h1>
-            <button id="btnBackToMenu">Palaa valikkoon</button>
+            <h1 id="winnerText">PLAYER WINS!</h1>
+            <button id="btnBackToMenu">Back to Menu</button>
         </div>
+        
     </div>
 
 <script>
-/** * KONFIGURAATIO */
-const WORLD_SIZE = 2500;
-const TANK_COLORS = ['#e74c3c', '#3498db', '#2ecc71', '#f1c40f'];
+/** * GLOBALS & CONFIG */
+const WORLD_SIZE = 2000;
+const TANK_COLORS = ['#ff4444', '#4444ff', '#44ff44', '#ffff44'];
 const WEAPONS = [
-    { id: 1, name: "Konekivääri", damage: 4, speed: 25, reload: 120, recoil: 1, radius: 2, shake: 1 },
-    { id: 2, name: "20mm Tykki", damage: 20, speed: 20, reload: 600, recoil: 4, radius: 5, shake: 3 },
-    { id: 3, name: "50mm Kanuuna", damage: 45, speed: 16, reload: 1400, recoil: 10, radius: 8, shake: 8 },
-    { id: 4, name: "150mm JÄTTI", damage: 95, speed: 11, reload: 3800, recoil: 25, radius: 12, shake: 20 }
+    { id: 1, name: "Machine Gun", damage: 5, speed: 25, reload: 100, recoil: 3, radius: 3, shake: 0, splash: 0 },
+    { id: 2, name: "20mm Cannon", damage: 20, speed: 18, reload: 500, recoil: 8, radius: 5, shake: 2, splash: 30 },
+    { id: 3, name: "50mm Cannon", damage: 50, speed: 14, reload: 1500, recoil: 20, radius: 8, shake: 8, splash: 80 },
+    { id: 4, name: "150mm Giant", damage: 100, speed: 10, reload: 3500, recoil: 50, radius: 12, shake: 20, splash: 200 }
 ];
 
 const canvas = document.getElementById('gameCanvas');
@@ -113,6 +107,7 @@ const minimap = document.getElementById('minimap');
 const mctx = minimap.getContext('2d');
 let cw = canvas.width = window.innerWidth;
 let ch = canvas.height = window.innerHeight;
+minimap.width = 150; minimap.height = 150;
 
 window.addEventListener('resize', () => {
     cw = canvas.width = window.innerWidth;
@@ -142,312 +137,285 @@ let gameState = {
     particles: [],
     obstacles: [],
     scores: {},
+    boLimit: 3,
+    winner: null,
     roundActive: false
 };
 
 let localInput = { w: false, a: false, s: false, d: false, mx: 0, my: 0, shoot: false, weapon: 1 };
 let localPlayerId = null;
-let camera = { x: 1250, y: 1250, shake: 0 };
+let camera = { x: WORLD_SIZE/2, y: WORLD_SIZE/2, shake: 0 };
 let lastTime = performance.now();
 let peer = null;
 let isHost = false;
 let connections = {};
 let hostConn = null;
 
-/** * VERKKO JA LOBBY */
-function initPeer(callback) {
-    document.getElementById('menuStatus').innerText = "Yhdistetään...";
-    peer = new Peer();
-    peer.on('open', (id) => {
-        localPlayerId = id;
-        document.getElementById('menuStatus').innerText = "Yhteys valmis.";
-        callback();
-    });
+const UI = {
+    menu: document.getElementById('menu'),
+    lobby: document.getElementById('lobby'),
+    hud: document.getElementById('hud'),
+    matchOver: document.getElementById('match-over'),
+    status: document.getElementById('menuStatus')
+};
+
+function showUI(elementId) {
+    Object.values(UI).forEach(el => el.classList.add('hidden'));
+    if(UI[elementId]) UI[elementId].classList.remove('hidden');
 }
 
-document.getElementById('btnHost').onclick = () => {
+window.addEventListener('keydown', (e) => {
+    const k = e.key.toLowerCase();
+    if(k === 'w') localInput.w = true; if(k === 's') localInput.s = true;
+    if(k === 'a') localInput.a = true; if(k === 'd') localInput.d = true;
+    if(e.key >= '1' && e.key <= '4') localInput.weapon = parseInt(e.key);
+});
+window.addEventListener('keyup', (e) => {
+    const k = e.key.toLowerCase();
+    if(k === 'w') localInput.w = false; if(k === 's') localInput.s = false;
+    if(k === 'a') localInput.a = false; if(k === 'd') localInput.d = false;
+});
+window.addEventListener('mousemove', (e) => { localInput.mx = e.clientX; localInput.my = e.clientY; });
+window.addEventListener('mousedown', (e) => { if(e.button === 0) localInput.shoot = true; });
+window.addEventListener('mouseup', (e) => { if(e.button === 0) localInput.shoot = false; });
+
+function initPeer(callback) {
+    UI.status.innerText = "Connecting...";
+    peer = new Peer();
+    peer.on('open', (id) => { localPlayerId = id; UI.status.innerText = "Connected."; callback(); });
+    peer.on('error', (err) => { UI.status.innerText = "Error: " + err.type; });
+}
+
+document.getElementById('btnHost').addEventListener('click', () => {
     initPeer(() => {
         isHost = true;
-        gameState.status = 'lobby';
+        gameState.boLimit = parseInt(document.getElementById('matchMode').value);
         generateMap(document.getElementById('mapSeed').value);
-        addPlayer(localPlayerId, document.getElementById('playerName').value, 0);
+        addPlayerToGame(localPlayerId, document.getElementById('playerName').value, 0);
         document.getElementById('displayHostId').innerText = localPlayerId;
         updateLobbyUI();
-        document.getElementById('menu').classList.add('hidden');
-        document.getElementById('lobby').classList.remove('hidden');
-
+        showUI('lobby');
         peer.on('connection', (conn) => {
             conn.on('data', (data) => {
                 if(data.type === 'join') {
                     connections[conn.peer] = conn;
-                    addPlayer(conn.peer, data.name, Object.keys(gameState.tanks).length);
+                    addPlayerToGame(conn.peer, data.name, Object.keys(gameState.tanks).length);
                     updateLobbyUI();
                     broadcast({ type: 'lobbyUpdate', tanks: gameState.tanks });
                 } else if (data.type === 'input') {
                     if(gameState.tanks[conn.peer]) gameState.tanks[conn.peer].input = data.input;
                 }
             });
+            conn.on('close', () => { delete connections[conn.peer]; delete gameState.tanks[conn.peer]; updateLobbyUI(); });
         });
     });
-};
+});
 
-document.getElementById('btnJoin').onclick = () => {
-    const id = document.getElementById('hostIdInput').value;
-    if(!id) return;
-    initPeer(() => {
-        hostConn = peer.connect(id);
-        hostConn.on('open', () => {
-            hostConn.send({ type: 'join', name: document.getElementById('playerName').value });
-        });
-        hostConn.on('data', (data) => {
-            if(data.type === 'lobbyUpdate') {
-                gameState.tanks = data.tanks;
-                updateLobbyUI();
-                document.getElementById('menu').classList.add('hidden');
-                document.getElementById('lobby').classList.remove('hidden');
-            } else if(data.type === 'start') {
-                gameState = data.state;
-                document.getElementById('lobby').classList.add('hidden');
-                document.getElementById('hud').style.display = 'block';
-            } else if(data.type === 'sync') {
-                gameState.tanks = data.tanks;
-                gameState.bullets = data.bullets;
-                gameState.particles = data.particles;
-                gameState.scores = data.scores;
-                if(data.shake > camera.shake) camera.shake = data.shake;
-                updateHUD();
-            }
-        });
-    });
-};
-
-document.getElementById('btnCopyId').onclick = () => {
-    const id = document.getElementById('displayHostId').innerText;
-    navigator.clipboard.writeText(id);
-    document.getElementById('btnCopyId').innerText = "KOPIOITU!";
-    setTimeout(() => { document.getElementById('btnCopyId').innerText = "KOPIOI"; }, 2000);
-};
-
-function addPlayer(id, name, idx) {
+function addPlayerToGame(id, name, index) {
     gameState.tanks[id] = {
-        id, name, color: TANK_COLORS[idx % 4],
-        x: 0, y: 0, angle: 0, turretAngle: 0,
-        hp: 100, lastShot: 0, vx: 0, vy: 0,
+        id, name, color: TANK_COLORS[index % 4], x: 0, y: 0, angle: 0, turretAngle: 0,
+        hp: 100, maxHp: 100, lastShot: 0, vx: 0, vy: 0,
         input: { ...localInput }
     };
     gameState.scores[id] = 0;
 }
 
-function broadcast(data) {
-    Object.values(connections).forEach(c => c.open && c.send(data));
-}
+function broadcast(data) { Object.values(connections).forEach(c => c.open && c.send(data)); }
 
-document.getElementById('btnStartGame').onclick = () => {
+document.getElementById('btnStartGame').addEventListener('click', () => {
     if(!isHost) return;
     startRound();
     gameState.status = 'playing';
     broadcast({ type: 'start', state: gameState });
-    document.getElementById('lobby').classList.add('hidden');
-    document.getElementById('hud').style.display = 'block';
-};
+    showUI('hud');
+});
+
+function updateLobbyUI() {
+    const list = document.getElementById('playerList');
+    list.innerHTML = '';
+    Object.values(gameState.tanks).forEach(t => {
+        let row = document.createElement('div');
+        row.className = 'player-row';
+        row.innerHTML = `<span>${t.name}</span>`;
+        if(t.id !== localPlayerId) {
+            let btn = document.createElement('button'); btn.innerText = 'KICK';
+            btn.onclick = () => { connections[t.id].send({ type: 'kicked' }); connections[t.id].close(); };
+            row.appendChild(btn);
+        }
+        list.appendChild(row);
+    });
+}
+
+document.getElementById('btnJoin').addEventListener('click', () => {
+    const hostId = document.getElementById('hostIdInput').value.trim();
+    initPeer(() => {
+        isHost = false;
+        hostConn = peer.connect(hostId);
+        hostConn.on('data', (data) => {
+            if(data.type === 'start') { gameState = data.state; showUI('hud'); }
+            else if(data.type === 'sync') { 
+                gameState.tanks = data.tanks; gameState.bullets = data.bullets; 
+                gameState.particles = data.particles; gameState.scores = data.scores;
+                if(data.shake > camera.shake) camera.shake = data.shake;
+                updateHUD();
+            }
+            else if(data.type === 'matchOver') {
+                document.getElementById('winnerText').innerText = `${data.winnerName} WINS!`;
+                showUI('match-over');
+            }
+            else if(data.type === 'kicked') { alert("Kicked!"); location.reload(); }
+        });
+        hostConn.on('open', () => hostConn.send({ type: 'join', name: document.getElementById('playerName').value }));
+    });
+});
 
 /** * PELILOGIIKKA */
-function generateMap(seed) {
-    const prng = mulberry32(hashString(seed));
+function generateMap(seedStr) {
+    const prng = mulberry32(hashString(seedStr));
     gameState.obstacles = [
-        {x: -100, y: -100, w: WORLD_SIZE+200, h: 100},
-        {x: -100, y: WORLD_SIZE, w: WORLD_SIZE+200, h: 100},
-        {x: -100, y: 0, w: 100, h: WORLD_SIZE},
-        {x: WORLD_SIZE, y: 0, w: 100, h: WORLD_SIZE}
+        {x: -50, y: -50, w: WORLD_SIZE+100, h: 50}, {x: -50, y: WORLD_SIZE, w: WORLD_SIZE+100, h: 50},
+        {x: -50, y: 0, w: 50, h: WORLD_SIZE}, {x: WORLD_SIZE, y: 0, w: 50, h: WORLD_SIZE}
     ];
-    for(let i=0; i<60; i++) {
-        let w = 40 + prng() * 150;
-        let h = 40 + prng() * 150;
-        gameState.obstacles.push({ x: prng() * (WORLD_SIZE-w), y: prng() * (WORLD_SIZE-h), w, h });
+    for(let i=0; i<100; i++) {
+        let w = 40 + prng()*100, h = 40 + prng()*100;
+        gameState.obstacles.push({x: prng()*(WORLD_SIZE-w), y: prng()*(WORLD_SIZE-h), w, h});
     }
 }
 
 function startRound() {
-    const points = [{x:200,y:200}, {x:WORLD_SIZE-200,y:WORLD_SIZE-200}, {x:WORLD_SIZE-200,y:200}, {x:200,y:WORLD_SIZE-200}];
+    const spawns = [{x:200,y:200}, {x:WORLD_SIZE-200,y:WORLD_SIZE-200}, {x:WORLD_SIZE-200,y:200}, {x:200,y:WORLD_SIZE-200}];
     let i=0;
     Object.values(gameState.tanks).forEach(t => {
-        t.x = points[i % points.length].x; t.y = points[i % points.length].y; t.hp = 100; t.vx = 0; t.vy = 0;
-        i++;
+        t.hp = 100; t.x = spawns[i].x; t.y = spawns[i].y; t.vx = 0; t.vy = 0; i++;
     });
     gameState.bullets = []; gameState.particles = []; gameState.roundActive = true;
 }
 
-// HUD KORJAUS: Aseen nimi päivittyy nyt inputin perusteella
-function updateHUD() {
-    const me = gameState.tanks[localPlayerId];
-    if(!me) return;
-    
-    // Luetaan nimi suoraan paikallisesta inputista (valittu ase)
-    const currentWeaponIdx = (localInput.weapon - 1);
-    const w = WEAPONS[currentWeaponIdx] || WEAPONS[0];
-    document.getElementById('weaponDisplay').innerText = w.name;
-    
-    const progress = Math.min(1, (performance.now() - me.lastShot) / w.reload);
-    document.getElementById('reload-circle').style.strokeDashoffset = 201 - (progress * 201);
-    document.getElementById('reload-text').innerText = progress < 1 ? "RELOADING..." : "READY";
-    document.getElementById('reload-text').style.color = progress < 1 ? "#e74c3c" : "#2ecc71";
-    
-    const scores = Object.values(gameState.tanks).map(t => `${t.name}: ${gameState.scores[t.id] || 0}`).join(' | ');
-    document.getElementById('scoreBoard').innerText = scores;
-}
-
-function hostUpdate() {
+function hostUpdate(dt) {
     if(!gameState.roundActive) return;
-    let s = 0;
-    let alivePlayers = [];
+    let localShake = 0;
 
     Object.values(gameState.tanks).forEach(t => {
-        if(t.hp > 0) {
-            alivePlayers.push(t.id);
-            if(t.input.a) t.angle -= 0.02;
-            if(t.input.d) t.angle += 0.02;
-            const speed = t.input.w ? 1.5 : (t.input.s ? -0.8 : 0);
-            t.vx = Math.cos(t.angle) * speed;
-            t.vy = Math.sin(t.angle) * speed;
-            t.x += t.vx; t.y += t.vy;
-            
-            gameState.obstacles.forEach(o => {
-                if(t.x+20 > o.x && t.x-20 < o.x+o.w && t.y+20 > o.y && t.y-20 < o.y+o.h) {
-                    t.x -= t.vx; t.y -= t.vy;
-                }
-            });
+        if(t.hp <= 0) return;
+        if(t.input.a) t.angle -= 0.05; if(t.input.d) t.angle += 0.05;
+        const accel = 0.5, friction = 0.85;
+        if(t.input.w) { t.vx += Math.cos(t.angle)*accel; t.vy += Math.sin(t.angle)*accel; }
+        if(t.input.s) { t.vx -= Math.cos(t.angle)*accel; t.vy -= Math.sin(t.angle)*accel; }
+        t.vx *= friction; t.vy *= friction;
+        t.x += t.vx; t.y += t.vy;
+        t.turretAngle = t.input.turretAngle || t.angle;
 
-            t.turretAngle = t.input.turretAngle;
-            const w = WEAPONS[t.input.weapon-1] || WEAPONS[0];
-            if(t.input.shoot && performance.now() - t.lastShot > w.reload) {
-                t.lastShot = performance.now();
-                gameState.bullets.push({
-                    x: t.x + Math.cos(t.turretAngle)*35, y: t.y + Math.sin(t.turretAngle)*35,
-                    vx: Math.cos(t.turretAngle)*w.speed, vy: Math.sin(t.turretAngle)*w.speed,
-                    owner: t.id, w: w, life: 120
-                });
-                s = w.shake;
+        gameState.obstacles.forEach(o => {
+            if(t.x+20 > o.x && t.x-20 < o.x+o.w && t.y+20 > o.y && t.y-20 < o.y+o.h) {
+                t.x -= t.vx*1.2; t.y -= t.vy*1.2; t.vx = 0; t.vy = 0;
             }
+        });
+
+        let weapon = WEAPONS[t.input.weapon-1] || WEAPONS[0];
+        if(t.input.shoot && performance.now() - t.lastShot > weapon.reload) {
+            t.lastShot = performance.now();
+            
+            // REKYYLI KORJAUS: Lisätään välitön "tömäys" taaksepäin
+            // weapon.recoil on Machine Gunilla 3 ja Giantilla 50.
+            // Kerroin 0.8 siirtää Giantilla tankkia noin 40 pikseliä taaksepäin heti.
+            const kickBack = weapon.recoil * 0.8;
+            t.x -= Math.cos(t.turretAngle) * kickBack;
+            t.y -= Math.sin(t.turretAngle) * kickBack;
+            
+            // Lisätään myös liike-energiaa
+            t.vx -= Math.cos(t.turretAngle) * (weapon.recoil * 0.2);
+            t.vy -= Math.sin(t.turretAngle) * (weapon.recoil * 0.2);
+
+            if(weapon.shake > localShake) localShake = weapon.shake;
+            gameState.bullets.push({
+                x: t.x + Math.cos(t.turretAngle)*30, y: t.y + Math.sin(t.turretAngle)*30,
+                vx: Math.cos(t.turretAngle)*weapon.speed, vy: Math.sin(t.turretAngle)*weapon.speed,
+                owner: t.id, weapon, life: 150
+            });
         }
     });
-
-    // ERÄN LOPPUMISEN KORJAUS: Jos vain yksi pelaaja (tai nolla) on elossa
-    if (Object.keys(gameState.tanks).length > 1 && alivePlayers.length <= 1) {
-        gameState.roundActive = false;
-        if (alivePlayers.length === 1) {
-            gameState.scores[alivePlayers[0]]++;
-        }
-        setTimeout(() => {
-            if (gameState.status === 'playing') startRound();
-        }, 2000);
-    }
 
     for(let i=gameState.bullets.length-1; i>=0; i--) {
         let b = gameState.bullets[i]; b.x += b.vx; b.y += b.vy; b.life--;
         let hit = false;
         gameState.obstacles.forEach(o => { if(b.x > o.x && b.x < o.x+o.w && b.y > o.y && b.y < o.y+o.h) hit = true; });
         Object.values(gameState.tanks).forEach(t => {
-            if(t.hp > 0 && t.id !== b.owner && Math.hypot(t.x-b.x, t.y-b.y) < 25) { 
-                t.hp -= b.w.damage; 
-                hit = true; 
+            if(t.hp > 0 && t.id !== b.owner && Math.hypot(t.x-b.x, t.y-b.y) < 25) {
+                t.hp -= b.weapon.damage; hit = true;
+                if(b.weapon.splash > 0) {
+                    Object.values(gameState.tanks).forEach(t2 => {
+                        let d = Math.hypot(t2.x-b.x, t2.y-b.y);
+                        if(d < b.weapon.splash) t2.hp -= b.weapon.damage * (1-d/b.weapon.splash);
+                    });
+                }
             }
         });
         if(hit || b.life <= 0) gameState.bullets.splice(i, 1);
     }
-    broadcast({ type: 'sync', tanks: gameState.tanks, bullets: gameState.bullets, scores: gameState.scores, shake: s });
+
+    let alive = Object.values(gameState.tanks).filter(t => t.hp > 0);
+    if(alive.length <= 1 && Object.keys(gameState.tanks).length > 1) {
+        gameState.roundActive = false;
+        if(alive.length === 1) {
+            gameState.scores[alive[0].id]++;
+            if(gameState.scores[alive[0].id] >= gameState.boLimit) {
+                broadcast({ type: 'matchOver', winnerName: alive[0].name });
+                document.getElementById('winnerText').innerText = `${alive[0].name} WINS!`;
+                showUI('match-over'); gameState.status = 'gameover'; return;
+            }
+        }
+        setTimeout(() => { if(gameState.status === 'playing') startRound(); }, 3000);
+    }
+    broadcast({ type: 'sync', tanks: gameState.tanks, bullets: gameState.bullets, particles: gameState.particles, scores: gameState.scores, shake: localShake });
 }
 
-/** * PIIRTÄMINEN */
-function drawTank(t) {
-    ctx.save();
-    ctx.translate(t.x, t.y);
-    ctx.fillStyle = "white"; ctx.font = "bold 14px Arial"; ctx.textAlign = "center";
-    ctx.fillText(t.name, 0, -40);
-    ctx.fillStyle = "#333"; ctx.fillRect(-25, -35, 50, 6);
-    ctx.fillStyle = "#2ecc71"; ctx.fillRect(-25, -35, 50 * (Math.max(0, t.hp)/100), 6);
-    ctx.rotate(t.angle);
-    ctx.fillStyle = "#222"; ctx.fillRect(-22, -18, 44, 36); 
-    ctx.fillStyle = t.color; ctx.fillRect(-18, -15, 36, 30); 
-    ctx.fillStyle = "rgba(0,0,0,0.2)"; ctx.fillRect(10, -15, 8, 30); 
-    ctx.restore();
-    ctx.save();
-    ctx.translate(t.x, t.y);
-    ctx.rotate(t.turretAngle);
-    ctx.fillStyle = "#555"; ctx.fillRect(0, -4, 35, 8); 
-    ctx.strokeStyle = "#333"; ctx.strokeRect(0, -4, 35, 8);
-    ctx.fillStyle = t.color;
-    ctx.beginPath(); ctx.arc(0, 0, 14, 0, Math.PI*2); ctx.fill();
-    ctx.stroke();
-    ctx.restore();
+/** * RENDERÖINTI */
+function updateHUD() {
+    let t = gameState.tanks[localPlayerId]; if(!t) return;
+    document.getElementById('hpDisplay').innerText = `HP: ${Math.max(0, Math.floor(t.hp))}`;
+    let w = WEAPONS[localInput.weapon-1] || WEAPONS[0];
+    document.getElementById('weaponDisplay').innerText = `Weapon: ${w.name}`;
+    let ready = performance.now() - t.lastShot > w.reload;
+    document.getElementById('reloadDisplay').innerText = ready ? "READY" : "RELOADING...";
+    document.getElementById('scoreBoard').innerText = Object.values(gameState.tanks).map(p => `${p.name}: ${gameState.scores[p.id]||0}`).join(' | ') + ` (BO${gameState.boLimit})`;
 }
 
 function render() {
-    ctx.fillStyle = "#1a1a1a"; ctx.fillRect(0,0,cw,ch);
+    ctx.fillStyle = '#111'; ctx.fillRect(0,0,cw,ch);
     if(gameState.status !== 'playing') return;
-
-    const me = gameState.tanks[localPlayerId];
+    let me = gameState.tanks[localPlayerId];
     if(me) {
-        let worldMx = camera.x + (localInput.mx - cw/2);
-        let worldMy = camera.y + (localInput.my - ch/2);
-        localInput.turretAngle = Math.atan2(worldMy - me.y, worldMx - me.x);
-        camera.x += (me.x - camera.x) * 0.1;
-        camera.y += (me.y - camera.y) * 0.1;
-        if(!isHost) hostConn.send({ type: 'input', input: localInput });
-        else me.input = { ...localInput };
+        let worldX = camera.x + (localInput.mx - cw/2), worldY = camera.y + (localInput.my - ch/2);
+        localInput.turretAngle = Math.atan2(worldY - me.y, worldX - me.x);
+        if(isHost) me.input = { ...localInput }; else if(hostConn?.open) hostConn.send({ type: 'input', input: localInput });
+        camera.x += (me.x - camera.x)*0.1; camera.y += (me.y - camera.y)*0.1;
     }
-
-    ctx.save();
-    ctx.translate(cw/2 - camera.x + (Math.random()-0.5)*camera.shake, ch/2 - camera.y + (Math.random()-0.5)*camera.shake);
-    camera.shake *= 0.9;
-    ctx.strokeStyle = "#222";
-    for(let x=0; x<WORLD_SIZE; x+=100) { ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,WORLD_SIZE); ctx.stroke(); }
-    for(let y=0; y<WORLD_SIZE; y+=100) { ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(WORLD_SIZE,y); ctx.stroke(); }
-    gameState.obstacles.forEach(o => {
-        ctx.fillStyle = "#333"; ctx.fillRect(o.x, o.y, o.w, o.h);
-        ctx.strokeStyle = "#444"; ctx.lineWidth = 4; ctx.strokeRect(o.x, o.y, o.w, o.h);
-    });
-    gameState.bullets.forEach(b => {
-        ctx.fillStyle = "#f1c40f"; ctx.beginPath(); ctx.arc(b.x, b.y, b.w.radius, 0, Math.PI*2); ctx.fill();
-    });
-    Object.values(gameState.tanks).forEach(t => { if(t.hp > 0) drawTank(t); });
-    ctx.restore();
-    
-    mctx.fillStyle = "black"; mctx.fillRect(0,0,180,180);
-    const s = 180/WORLD_SIZE;
-    ctx.fillStyle = "#555"; gameState.obstacles.forEach(o => mctx.fillRect(o.x*s, o.y*s, o.w*s, o.h*s));
-    Object.values(gameState.tanks).forEach(t => { if(t.hp>0) { mctx.fillStyle=t.color; mctx.fillRect(t.x*s-2, t.y*s-2, 4, 4); } });
-}
-
-function updateLobbyUI() {
-    const list = document.getElementById('playerList');
-    list.innerHTML = '';
+    let sx = (Math.random()-0.5)*camera.shake, sy = (Math.random()-0.5)*camera.shake; camera.shake *= 0.9;
+    ctx.save(); ctx.translate(cw/2-camera.x+sx, ch/2-camera.y+sy);
+    ctx.strokeStyle = '#222'; for(let i=0; i<WORLD_SIZE; i+=100) { ctx.strokeRect(i,0,100,WORLD_SIZE); ctx.strokeRect(0,i,WORLD_SIZE,100); }
+    gameState.obstacles.forEach(o => { ctx.fillStyle='#333'; ctx.fillRect(o.x,o.y,o.w,o.h); ctx.strokeStyle='#555'; ctx.strokeRect(o.x,o.y,o.w,o.h); });
+    gameState.bullets.forEach(b => { ctx.fillStyle='#ffaa00'; ctx.beginPath(); ctx.arc(b.x,b.y,b.weapon.radius,0,Math.PI*2); ctx.fill(); });
     Object.values(gameState.tanks).forEach(t => {
-        list.innerHTML += `<div style="padding:8px; background:#333; margin:4px; border-radius:4px; color:${t.color}; font-weight:bold;">${t.name}</div>`;
+        if(t.hp <= 0) return;
+        ctx.save(); ctx.translate(t.x, t.y);
+        ctx.fillStyle='#fff'; ctx.fillText(t.name, 0, -35);
+        ctx.fillStyle='#f00'; ctx.fillRect(-20,-30,40,4); ctx.fillStyle='#0f0'; ctx.fillRect(-20,-30,40*(t.hp/100),4);
+        ctx.rotate(t.angle); ctx.fillStyle=t.color; ctx.fillRect(-20,-15,40,30); ctx.fillStyle='#222'; ctx.fillRect(10,-10,10,20);
+        ctx.restore();
+        ctx.save(); ctx.translate(t.x,t.y); ctx.rotate(t.turretAngle); ctx.fillStyle='#555'; ctx.fillRect(0,-5,35,10);
+        ctx.fillStyle='#777'; ctx.beginPath(); ctx.arc(0,0,12,0,Math.PI*2); ctx.fill(); ctx.restore();
     });
+    ctx.restore();
+    mctx.fillStyle='#000'; mctx.fillRect(0,0,150,150);
+    const s = 150/WORLD_SIZE;
+    gameState.obstacles.forEach(o => { mctx.fillStyle='#444'; mctx.fillRect(o.x*s,o.y*s,o.w*s,o.h*s); });
+    Object.values(gameState.tanks).forEach(t => { if(t.hp>0) { mctx.fillStyle=t.color; mctx.fillRect(t.x*s-2,t.y*s-2,4,4); } });
 }
 
-function loop() {
-    if(isHost) hostUpdate();
-    render();
-    if(gameState.status === 'playing') updateHUD(); // Varmistetaan HUD päivitys loopissa
-    requestAnimationFrame(loop);
-}
-requestAnimationFrame(loop);
+function loop() { if(isHost) hostUpdate(); render(); requestAnimationFrame(loop); }
+loop();
 
-window.onkeydown = (e) => {
-    const k = e.key.toLowerCase();
-    if(k === 'w') localInput.w = true; if(k === 's') localInput.s = true;
-    if(k === 'a') localInput.a = true; if(k === 'd') localInput.d = true;
-    if(k >= '1' && k <= '4') localInput.weapon = parseInt(k);
-};
-window.onkeyup = (e) => {
-    const k = e.key.toLowerCase();
-    if(k === 'w') localInput.w = false; if(k === 's') localInput.s = false;
-    if(k === 'a') localInput.a = false; if(k === 'd') localInput.d = false;
-};
-window.onmousemove = (e) => { localInput.mx = e.clientX; localInput.my = e.clientY; };
-window.onmousedown = () => { localInput.shoot = true; };
-window.onmouseup = () => { localInput.shoot = false; };
+document.getElementById('btnBackToMenu').onclick = () => location.reload();
 </script>
 </body>
 </html>
