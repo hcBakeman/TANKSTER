@@ -304,9 +304,9 @@ function hostUpdate() {
     Object.values(gameState.tanks).forEach(t => {
         if(t.hp > 0) {
             alivePlayers.push(t.id);
-            if(t.input.a) t.angle -= 0.04;
-            if(t.input.d) t.angle += 0.04;
-            const speed = t.input.w ? 3.5 : (t.input.s ? -2 : 0);
+            if(t.input.a) t.angle -= 0.02;
+            if(t.input.d) t.angle += 0.02;
+            const speed = t.input.w ? 1.5 : (t.input.s ? -0.8 : 0);
             t.vx = Math.cos(t.angle) * speed;
             t.vy = Math.sin(t.angle) * speed;
             t.x += t.vx; t.y += t.vy;
