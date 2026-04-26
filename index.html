@@ -22,7 +22,6 @@
         #hud { position: absolute; top: 0; left: 0; width: 100%; height: 100%; padding: 20px; box-sizing: border-box; display: none; }
         .hud-top { display: flex; justify-content: center; font-size: 28px; font-weight: bold; text-shadow: 2px 2px 4px #000; color: #f1c40f; }
         
-        /* KESKITETTY ASENÄYTTÖ */
         .hud-center { 
             position: absolute; bottom: 40px; left: 50%; transform: translateX(-50%); 
             display: flex; flex-direction: column; align-items: center; gap: 8px;
@@ -76,7 +75,7 @@
             <div class="hud-top" id="scoreBoard">P1: 0 | P2: 0</div>
             
             <div class="hud-center">
-                <div id="weaponDisplay" class="weapon-label">20mm CANNON</div>
+                <div id="weaponDisplay" class="weapon-label">ODOTETAAN...</div>
                 <div class="loader-container">
                     <svg class="loader-svg">
                         <circle class="loader-bg" cx="35" cy="35" r="32"></circle>
@@ -98,8 +97,7 @@
     </div>
 
 <script>
-/** * KONFIGURAATIO
- */
+/** * KONFIGURAATIO */
 const WORLD_SIZE = 2500;
 const TANK_COLORS = ['#e74c3c', '#3498db', '#2ecc71', '#f1c40f'];
 const WEAPONS = [
@@ -121,7 +119,6 @@ window.addEventListener('resize', () => {
     ch = canvas.height = window.innerHeight;
 });
 
-// Apu-funktiot
 function mulberry32(a) {
     return function() {
       var t = a += 0x6D2B79F5;
@@ -138,8 +135,6 @@ function hashString(str) {
     return h;
 }
 
-/** * PELIN TILA
- */
 let gameState = {
     status: 'menu',
     tanks: {},
@@ -159,8 +154,7 @@ let isHost = false;
 let connections = {};
 let hostConn = null;
 
-/** * VERKKO JA LOBBY
- */
+/** * VERKKO JA LOBBY */
 function initPeer(callback) {
     document.getElementById('menuStatus').innerText = "Yhdistetään...";
     peer = new Peer();
@@ -219,6 +213,7 @@ document.getElementById('btnJoin').onclick = () => {
                 gameState.tanks = data.tanks;
                 gameState.bullets = data.bullets;
                 gameState.particles = data.particles;
+                gameState.scores = data.scores;
                 if(data.shake > camera.shake) camera.shake = data.shake;
                 updateHUD();
             }
@@ -256,8 +251,7 @@ document.getElementById('btnStartGame').onclick = () => {
     document.getElementById('hud').style.display = 'block';
 };
 
-/** * PELILOGIIKKA
- */
+/** * PELILOGIIKKA */
 function generateMap(seed) {
     const prng = mulberry32(hashString(seed));
     gameState.obstacles = [
@@ -277,94 +271,110 @@ function startRound() {
     const points = [{x:200,y:200}, {x:WORLD_SIZE-200,y:WORLD_SIZE-200}, {x:WORLD_SIZE-200,y:200}, {x:200,y:WORLD_SIZE-200}];
     let i=0;
     Object.values(gameState.tanks).forEach(t => {
-        t.x = points[i].x; t.y = points[i].y; t.hp = 100; t.vx = 0; t.vy = 0;
+        t.x = points[i % points.length].x; t.y = points[i % points.length].y; t.hp = 100; t.vx = 0; t.vy = 0;
         i++;
     });
     gameState.bullets = []; gameState.particles = []; gameState.roundActive = true;
 }
 
+// HUD KORJAUS: Aseen nimi päivittyy nyt inputin perusteella
 function updateHUD() {
     const me = gameState.tanks[localPlayerId];
     if(!me) return;
-    const w = WEAPONS[localInput.weapon-1] || WEAPONS[0];
+    
+    // Luetaan nimi suoraan paikallisesta inputista (valittu ase)
+    const currentWeaponIdx = (localInput.weapon - 1);
+    const w = WEAPONS[currentWeaponIdx] || WEAPONS[0];
     document.getElementById('weaponDisplay').innerText = w.name;
+    
     const progress = Math.min(1, (performance.now() - me.lastShot) / w.reload);
     document.getElementById('reload-circle').style.strokeDashoffset = 201 - (progress * 201);
     document.getElementById('reload-text').innerText = progress < 1 ? "RELOADING..." : "READY";
     document.getElementById('reload-text').style.color = progress < 1 ? "#e74c3c" : "#2ecc71";
+    
+    const scores = Object.values(gameState.tanks).map(t => `${t.name}: ${gameState.scores[t.id] || 0}`).join(' | ');
+    document.getElementById('scoreBoard').innerText = scores;
 }
 
 function hostUpdate() {
     if(!gameState.roundActive) return;
     let s = 0;
-    Object.values(gameState.tanks).forEach(t => {
-        if(t.hp <= 0) return;
-        if(t.input.a) t.angle -= 0.04;
-        if(t.input.d) t.angle += 0.04;
-        const speed = t.input.w ? 3.5 : (t.input.s ? -2 : 0);
-        t.vx = Math.cos(t.angle) * speed;
-        t.vy = Math.sin(t.angle) * speed;
-        t.x += t.vx; t.y += t.vy;
-        
-        // Törmäykset
-        gameState.obstacles.forEach(o => {
-            if(t.x+20 > o.x && t.x-20 < o.x+o.w && t.y+20 > o.y && t.y-20 < o.y+o.h) {
-                t.x -= t.vx; t.y -= t.vy;
-            }
-        });
+    let alivePlayers = [];
 
-        t.turretAngle = t.input.turretAngle;
-        const w = WEAPONS[t.input.weapon-1] || WEAPONS[0];
-        if(t.input.shoot && performance.now() - t.lastShot > w.reload) {
-            t.lastShot = performance.now();
-            gameState.bullets.push({
-                x: t.x + Math.cos(t.turretAngle)*35, y: t.y + Math.sin(t.turretAngle)*35,
-                vx: Math.cos(t.turretAngle)*w.speed, vy: Math.sin(t.turretAngle)*w.speed,
-                owner: t.id, w: w, life: 120
+    Object.values(gameState.tanks).forEach(t => {
+        if(t.hp > 0) {
+            alivePlayers.push(t.id);
+            if(t.input.a) t.angle -= 0.04;
+            if(t.input.d) t.angle += 0.04;
+            const speed = t.input.w ? 3.5 : (t.input.s ? -2 : 0);
+            t.vx = Math.cos(t.angle) * speed;
+            t.vy = Math.sin(t.angle) * speed;
+            t.x += t.vx; t.y += t.vy;
+            
+            gameState.obstacles.forEach(o => {
+                if(t.x+20 > o.x && t.x-20 < o.x+o.w && t.y+20 > o.y && t.y-20 < o.y+o.h) {
+                    t.x -= t.vx; t.y -= t.vy;
+                }
             });
-            s = w.shake;
+
+            t.turretAngle = t.input.turretAngle;
+            const w = WEAPONS[t.input.weapon-1] || WEAPONS[0];
+            if(t.input.shoot && performance.now() - t.lastShot > w.reload) {
+                t.lastShot = performance.now();
+                gameState.bullets.push({
+                    x: t.x + Math.cos(t.turretAngle)*35, y: t.y + Math.sin(t.turretAngle)*35,
+                    vx: Math.cos(t.turretAngle)*w.speed, vy: Math.sin(t.turretAngle)*w.speed,
+                    owner: t.id, w: w, life: 120
+                });
+                s = w.shake;
+            }
         }
     });
+
+    // ERÄN LOPPUMISEN KORJAUS: Jos vain yksi pelaaja (tai nolla) on elossa
+    if (Object.keys(gameState.tanks).length > 1 && alivePlayers.length <= 1) {
+        gameState.roundActive = false;
+        if (alivePlayers.length === 1) {
+            gameState.scores[alivePlayers[0]]++;
+        }
+        setTimeout(() => {
+            if (gameState.status === 'playing') startRound();
+        }, 2000);
+    }
 
     for(let i=gameState.bullets.length-1; i>=0; i--) {
         let b = gameState.bullets[i]; b.x += b.vx; b.y += b.vy; b.life--;
         let hit = false;
         gameState.obstacles.forEach(o => { if(b.x > o.x && b.x < o.x+o.w && b.y > o.y && b.y < o.y+o.h) hit = true; });
         Object.values(gameState.tanks).forEach(t => {
-            if(t.hp > 0 && t.id !== b.owner && Math.hypot(t.x-b.x, t.y-b.y) < 25) { t.hp -= b.w.damage; hit = true; }
+            if(t.hp > 0 && t.id !== b.owner && Math.hypot(t.x-b.x, t.y-b.y) < 25) { 
+                t.hp -= b.w.damage; 
+                hit = true; 
+            }
         });
         if(hit || b.life <= 0) gameState.bullets.splice(i, 1);
     }
-    broadcast({ type: 'sync', tanks: gameState.tanks, bullets: gameState.bullets, particles: gameState.particles, shake: s });
+    broadcast({ type: 'sync', tanks: gameState.tanks, bullets: gameState.bullets, scores: gameState.scores, shake: s });
 }
 
-/** * PIIRTÄMINEN
- */
+/** * PIIRTÄMINEN */
 function drawTank(t) {
     ctx.save();
     ctx.translate(t.x, t.y);
-    
-    // Nimi ja HP
     ctx.fillStyle = "white"; ctx.font = "bold 14px Arial"; ctx.textAlign = "center";
     ctx.fillText(t.name, 0, -40);
     ctx.fillStyle = "#333"; ctx.fillRect(-25, -35, 50, 6);
-    ctx.fillStyle = "#2ecc71"; ctx.fillRect(-25, -35, 50 * (t.hp/100), 6);
-
-    // Runko (Body)
+    ctx.fillStyle = "#2ecc71"; ctx.fillRect(-25, -35, 50 * (Math.max(0, t.hp)/100), 6);
     ctx.rotate(t.angle);
-    ctx.fillStyle = "#222"; ctx.fillRect(-22, -18, 44, 36); // Telaketjut
-    ctx.fillStyle = t.color; ctx.fillRect(-18, -15, 36, 30); // Runko
-    ctx.fillStyle = "rgba(0,0,0,0.2)"; ctx.fillRect(10, -15, 8, 30); // Etuosa varjostus
+    ctx.fillStyle = "#222"; ctx.fillRect(-22, -18, 44, 36); 
+    ctx.fillStyle = t.color; ctx.fillRect(-18, -15, 36, 30); 
+    ctx.fillStyle = "rgba(0,0,0,0.2)"; ctx.fillRect(10, -15, 8, 30); 
     ctx.restore();
-
-    // Torni ja Piippu (Turret & Barrel)
     ctx.save();
     ctx.translate(t.x, t.y);
     ctx.rotate(t.turretAngle);
-    // Piippu
     ctx.fillStyle = "#555"; ctx.fillRect(0, -4, 35, 8); 
     ctx.strokeStyle = "#333"; ctx.strokeRect(0, -4, 35, 8);
-    // Torni
     ctx.fillStyle = t.color;
     ctx.beginPath(); ctx.arc(0, 0, 14, 0, Math.PI*2); ctx.fill();
     ctx.stroke();
@@ -389,29 +399,19 @@ function render() {
     ctx.save();
     ctx.translate(cw/2 - camera.x + (Math.random()-0.5)*camera.shake, ch/2 - camera.y + (Math.random()-0.5)*camera.shake);
     camera.shake *= 0.9;
-
-    // Maa
     ctx.strokeStyle = "#222";
     for(let x=0; x<WORLD_SIZE; x+=100) { ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,WORLD_SIZE); ctx.stroke(); }
     for(let y=0; y<WORLD_SIZE; y+=100) { ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(WORLD_SIZE,y); ctx.stroke(); }
-
-    // Esteet
     gameState.obstacles.forEach(o => {
         ctx.fillStyle = "#333"; ctx.fillRect(o.x, o.y, o.w, o.h);
         ctx.strokeStyle = "#444"; ctx.lineWidth = 4; ctx.strokeRect(o.x, o.y, o.w, o.h);
     });
-
-    // Ammukset
     gameState.bullets.forEach(b => {
         ctx.fillStyle = "#f1c40f"; ctx.beginPath(); ctx.arc(b.x, b.y, b.w.radius, 0, Math.PI*2); ctx.fill();
     });
-
-    // Tankit
     Object.values(gameState.tanks).forEach(t => { if(t.hp > 0) drawTank(t); });
-
     ctx.restore();
     
-    // Minimap
     mctx.fillStyle = "black"; mctx.fillRect(0,0,180,180);
     const s = 180/WORLD_SIZE;
     ctx.fillStyle = "#555"; gameState.obstacles.forEach(o => mctx.fillRect(o.x*s, o.y*s, o.w*s, o.h*s));
@@ -429,11 +429,11 @@ function updateLobbyUI() {
 function loop() {
     if(isHost) hostUpdate();
     render();
+    if(gameState.status === 'playing') updateHUD(); // Varmistetaan HUD päivitys loopissa
     requestAnimationFrame(loop);
 }
 requestAnimationFrame(loop);
 
-// Kontrollit
 window.onkeydown = (e) => {
     const k = e.key.toLowerCase();
     if(k === 'w') localInput.w = true; if(k === 's') localInput.s = true;
