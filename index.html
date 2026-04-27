@@ -1,421 +1,681 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>2D Top-Down Tank Combat - Rekyyli Päivitys</title>
-    <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
-    <style>
-        body { margin: 0; overflow: hidden; background-color: #111; color: #fff; font-family: monospace; user-select: none; }
-        canvas { display: block; }
-        .ui-layer { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; pointer-events: none; }
-        .interactive { pointer-events: auto; }
-        .panel { background: rgba(0, 0, 0, 0.85); padding: 20px; border: 2px solid #444; border-radius: 8px; box-shadow: 0 0 15px #000; }
-        
-        #menu, #lobby, #match-over { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); display: flex; flex-direction: column; gap: 10px; min-width: 300px; }
-        input, select, button { padding: 8px; font-family: monospace; font-size: 16px; background: #222; color: #fff; border: 1px solid #555; }
-        button { cursor: pointer; background: #444; font-weight: bold; }
-        button:hover { background: #666; }
-        
-        #hud { position: absolute; top: 0; left: 0; width: 100%; height: 100%; padding: 20px; box-sizing: border-box; display: none; }
-        .hud-top { display: flex; justify-content: center; font-size: 24px; font-weight: bold; text-shadow: 2px 2px 0 #000; }
-        .hud-bottom { position: absolute; bottom: 20px; left: 20px; }
-        .weapon-info { font-size: 18px; text-shadow: 1px 1px 0 #000; }
-        
-        #minimap-container { position: absolute; bottom: 20px; right: 20px; width: 150px; height: 150px; border: 2px solid #555; background: rgba(0,0,0,0.5); }
-        #minimap { width: 100%; height: 100%; }
-        
-        .hidden { display: none !important; }
-        h1, h2 { margin: 0 0 10px 0; text-align: center; }
-        .player-row { display: flex; justify-content: space-between; align-items: center; background: #222; padding: 5px; margin-bottom: 5px; }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Steel Thunder - Tank Warfare</title>
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<style>
+:root{--bg:#1a1e14;--fg:#d4c9a8;--muted:#7a7460;--accent:#8fb33a;--accent2:#c4a43a;--danger:#c44a3a;--card:#2a3020;--border:#3a4030;--p1:#5a8a44;--p2:#8a4444}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Rajdhani',sans-serif;background:var(--bg);color:var(--fg);overflow:hidden;width:100vw;height:100vh;user-select:none}
+.screen{position:absolute;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center}
+.screen.active{display:flex}
+#menu-screen{background:radial-gradient(ellipse at 30% 20%,rgba(143,179,58,.08) 0%,transparent 50%),radial-gradient(ellipse at 70% 80%,rgba(196,164,58,.06) 0%,transparent 50%),var(--bg)}
+.menu-bg{position:absolute;inset:0;overflow:hidden;pointer-events:none}
+.menu-bg .line{position:absolute;background:rgba(143,179,58,.04);height:1px;width:100%}
+.menu-container{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:32px 40px;max-width:520px;width:92%;position:relative;z-index:2}
+.menu-title{font-family:'Share Tech Mono',monospace;font-size:2rem;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:4px;margin-bottom:2px}
+.menu-subtitle{font-size:.8rem;color:var(--muted);margin-bottom:6px;letter-spacing:2px;text-transform:uppercase}
+.peer-status{font-family:'Share Tech Mono',monospace;font-size:.68rem;color:var(--accent);margin-bottom:18px;display:flex;align-items:center;gap:8px;min-height:18px}
+.peer-dot{width:7px;height:7px;border-radius:50%;background:var(--accent);flex-shrink:0;animation:pulse 2s infinite}
+.peer-dot.off{background:var(--danger);animation:none}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.peer-id-row{display:flex;align-items:center;gap:6px;margin-top:4px}
+.peer-id-text{font-size:.62rem;color:var(--accent);word-break:break-all;flex:1;line-height:1.3}
+.copy-btn{padding:3px 8px;background:rgba(143,179,58,.12);border:1px solid rgba(143,179,58,.3);border-radius:3px;color:var(--accent);font-family:'Rajdhani',sans-serif;font-size:.7rem;font-weight:600;cursor:pointer;white-space:nowrap;transition:all .2s}
+.copy-btn:hover{background:rgba(143,179,58,.25)}
+.name-input{width:100%;padding:9px 12px;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--fg);font-family:'Rajdhani',sans-serif;font-size:.95rem;outline:none;transition:border-color .2s;margin-bottom:18px}
+.name-input:focus{border-color:var(--accent)}.name-input::placeholder{color:var(--muted)}
+.option-group{margin-bottom:16px}
+.option-label{font-size:.68rem;color:var(--muted);text-transform:uppercase;letter-spacing:2px;margin-bottom:6px}
+.option-buttons{display:flex;gap:8px}
+.opt-btn{flex:1;padding:8px 6px;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--fg);font-family:'Share Tech Mono',monospace;font-size:.74rem;cursor:pointer;transition:all .2s;text-align:center}
+.opt-btn:hover{border-color:var(--accent);color:var(--accent)}
+.opt-btn.sel{background:rgba(143,179,58,.15);border-color:var(--accent);color:var(--accent);box-shadow:0 0 10px rgba(143,179,58,.08)}
+.action-buttons{display:flex;gap:10px;margin-top:22px}
+.action-btn{flex:1;padding:12px 16px;border:none;border-radius:8px;font-family:'Rajdhani',sans-serif;font-size:1rem;font-weight:700;cursor:pointer;transition:all .2s;text-transform:uppercase;letter-spacing:1px}
+.btn-host{background:var(--accent);color:var(--bg)}.btn-host:hover{background:#a0c944}
+.btn-join{background:transparent;color:var(--fg);border:1px solid var(--border)}.btn-join:hover{border-color:var(--accent);color:var(--accent)}
+#lobby-screen{background:var(--bg)}
+.lobby-box{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:30px 34px;max-width:470px;width:92%;position:relative}
+.lobby-title{font-family:'Share Tech Mono',monospace;font-size:1.15rem;color:var(--accent);margin-bottom:14px;text-transform:uppercase;letter-spacing:2px}
+.lobby-info{font-size:.8rem;color:var(--muted);margin-bottom:6px;line-height:1.4}
+.lobby-info strong{color:var(--fg)}
+.id-box{background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:10px 12px;margin-bottom:6px;display:flex;align-items:center;gap:8px}
+.id-text{flex:1;font-family:'Share Tech Mono',monospace;font-size:.68rem;color:var(--accent);word-break:break-all;line-height:1.4}
+.id-copy{padding:5px 10px;background:rgba(143,179,58,.15);border:1px solid var(--accent);border-radius:4px;color:var(--accent);font-family:'Rajdhani',sans-serif;font-size:.78rem;font-weight:600;cursor:pointer;white-space:nowrap;transition:all .2s}
+.id-copy:hover{background:rgba(143,179,58,.25)}
+.join-input{width:100%;padding:10px 12px;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--fg);font-family:'Share Tech Mono',monospace;font-size:.76rem;outline:none;transition:border-color .2s;margin-bottom:8px}
+.join-input:focus{border-color:var(--accent)}.join-input::placeholder{color:var(--muted)}
+.lobby-div{height:1px;background:var(--border);margin:12px 0}
+.lobby-settings{display:flex;justify-content:center;gap:16px;font-family:'Share Tech Mono',monospace;font-size:.72rem;color:var(--muted);margin-bottom:4px}
+.player-list{margin:12px 0}
+.player-row{display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:6px;margin-bottom:4px;background:rgba(0,0,0,.15)}
+.pdot{width:9px;height:9px;border-radius:50%;flex-shrink:0}
+.pname{flex:1;font-size:.88rem}
+.prole{color:var(--muted);font-size:.72rem}
+.kick-btn{padding:3px 10px;background:rgba(196,74,58,.15);border:1px solid var(--danger);border-radius:4px;color:var(--danger);font-family:'Rajdhani',sans-serif;font-size:.75rem;font-weight:600;cursor:pointer;transition:all .2s}
+.kick-btn:hover{background:rgba(196,74,58,.3)}
+.lobby-btn{width:100%;padding:10px;background:var(--accent);color:var(--bg);border:none;border-radius:6px;font-family:'Rajdhani',sans-serif;font-size:.92rem;font-weight:700;cursor:pointer;text-transform:uppercase;letter-spacing:1px;transition:all .2s;margin-bottom:5px}
+.lobby-btn:hover{background:#a0c944}.lobby-btn:disabled{opacity:.3;cursor:not-allowed}
+.lobby-btn-sec{background:transparent;color:var(--fg);border:1px solid var(--border)}.lobby-btn-sec:hover{border-color:var(--accent);color:var(--accent)}
+.lobby-status{text-align:center;padding:14px 0}
+.spinner{width:30px;height:30px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 1s linear infinite;margin:0 auto 10px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.lobby-status p{color:var(--muted);font-size:.82rem}
+#game-screen{background:#000}
+#game-canvas{display:block;width:100vw;height:100vh;cursor:crosshair}
+.hud{position:absolute;pointer-events:none}
+.hud-top{top:0;left:0;right:0;display:flex;justify-content:center;padding:8px 14px}
+.hud-bar{background:rgba(26,30,20,.88);border:1px solid var(--border);border-radius:8px;padding:4px 20px;display:flex;align-items:center;gap:12px;font-family:'Share Tech Mono',monospace}
+.hp-name{display:flex;align-items:center;gap:4px}
+.hp-label{font-size:.65rem;color:var(--muted)}
+.hp-score{font-size:1.3rem;font-weight:700}
+.c1{color:var(--p1)}.c2{color:var(--p2)}
+.hud-rnd{font-size:.65rem;color:var(--muted);text-align:center;line-height:1.3}
+.hud-rnd span{display:block;font-size:.78rem;color:var(--fg)}
+.hud-bl{bottom:16px;left:16px}
+.hb-wrap{width:160px}
+.hb-lbl{font-family:'Share Tech Mono',monospace;font-size:.6rem;color:var(--muted);margin-bottom:2px}
+.hb-bg{height:5px;background:rgba(0,0,0,.6);border-radius:3px;overflow:hidden;border:1px solid var(--border)}
+.hb-fill{height:100%;background:var(--accent);border-radius:3px;transition:width .3s}
+.hb-fill.low{background:var(--danger)}
+.hud-weapon{position:absolute;bottom:20px;right:20px;pointer-events:none;display:flex;align-items:center;gap:12px}
+.weapon-box{background:rgba(26,30,20,.88);border:1px solid var(--border);border-radius:10px;padding:12px 16px;display:flex;align-items:center;gap:14px}
+.reload-ring{position:relative;width:52px;height:52px;flex-shrink:0}
+.reload-ring canvas{width:52px;height:52px}
+.reload-ring .rl-label{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:'Share Tech Mono',monospace;font-size:.85rem;color:var(--fg);font-weight:700}
+.weapon-info{text-align:left}
+.weapon-name{font-family:'Share Tech Mono',monospace;font-size:.82rem;color:var(--accent);font-weight:700;margin-bottom:2px}
+.weapon-ammo{font-family:'Share Tech Mono',monospace;font-size:.7rem;color:var(--muted)}
+.weapon-slots{display:flex;gap:4px;margin-top:4px}
+.w-slot{padding:2px 6px;border-radius:3px;font-family:'Share Tech Mono',monospace;font-size:.6rem;border:1px solid var(--border);color:var(--muted)}
+.w-slot.active{border-color:var(--accent);color:var(--accent);background:rgba(143,179,58,.1)}
+.hud-ctrl{position:absolute;bottom:6px;left:50%;transform:translateX(-50%);font-family:'Share Tech Mono',monospace;font-size:.55rem;color:rgba(255,255,255,.18);pointer-events:none}
+#overlay{position:absolute;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.75);z-index:100}
+#overlay.active{display:flex}
+.ol-content{text-align:center}
+.ol-title{font-family:'Share Tech Mono',monospace;font-size:2.5rem;font-weight:700;margin-bottom:4px}
+.ol-sub{font-size:.9rem;color:var(--muted);margin-bottom:16px;line-height:1.4}
+.ol-btn{padding:10px 26px;background:var(--accent);color:var(--bg);border:none;border-radius:6px;font-family:'Rajdhani',sans-serif;font-size:.95rem;font-weight:700;cursor:pointer;pointer-events:all;text-transform:uppercase;letter-spacing:1px;transition:all .2s}
+.ol-btn:hover{background:#a0c944}
+.cd-num{font-family:'Share Tech Mono',monospace;font-size:6rem;color:var(--accent);text-shadow:0 0 40px rgba(143,179,58,.3);line-height:1}
+#dmg-flash{position:absolute;inset:0;background:rgba(196,74,58,.3);pointer-events:none;opacity:0;transition:opacity .08s;z-index:50}
+#dmg-flash.on{opacity:1}
+.toast-el{position:absolute;top:60px;left:50%;transform:translateX(-50%);padding:6px 16px;border-radius:5px;font-size:.8rem;font-weight:600;z-index:200;opacity:0;transition:opacity .3s;pointer-events:none;color:#fff}
+.toast-el.show{opacity:1}
+.toast-el.err{background:rgba(196,74,58,.92)}
+.toast-el.ok{background:rgba(143,179,58,.92)}
+</style>
 </head>
 <body>
 
-    <canvas id="gameCanvas"></canvas>
-
-    <div class="ui-layer">
-        
-        <div id="menu" class="panel interactive">
-            <h1>TANK COMBAT</h1>
-            <label>Player Name:</label>
-            <input type="text" id="playerName" value="Player">
-            <label>Map Seed:</label>
-            <input type="text" id="mapSeed" value="secret_seed_123">
-            
-            <hr style="width:100%; border-color:#444;">
-            
-            <h3>Host Game</h3>
-            <label>Match Mode:</label>
-            <select id="matchMode">
-                <option value="3">Best of 3</option>
-                <option value="5">Best of 5</option>
-                <option value="10">Best of 10</option>
-            </select>
-            <button id="btnHost">Create & Host Game</button>
-            
-            <hr style="width:100%; border-color:#444;">
-            
-            <h3>Join Game</h3>
-            <label>Host ID:</label>
-            <input type="text" id="hostIdInput" placeholder="Paste Host ID here">
-            <button id="btnJoin">Join Game</button>
-            
-            <p id="menuStatus" style="color: yellow; text-align: center;"></p>
-        </div>
-
-        <div id="lobby" class="panel interactive hidden">
-            <h2>LOBBY (Host)</h2>
-            <p>Your Host ID (Share this): <br><strong id="displayHostId" style="color: #0f0; user-select: all;"></strong></p>
-            <div id="playerList"></div>
-            <button id="btnStartGame" style="margin-top:15px; background:#28a745;">Start Match</button>
-        </div>
-
-        <div id="hud">
-            <div class="hud-top" id="scoreBoard">P1: 0 | P2: 0</div>
-            <div class="hud-bottom">
-                <div class="weapon-info" id="hpDisplay" style="color: #0f0;">HP: 100</div>
-                <div class="weapon-info" id="weaponDisplay">Weapon: 20mm Cannon</div>
-                <div class="weapon-info" id="reloadDisplay">Ready</div>
-            </div>
-            <div id="minimap-container">
-                <canvas id="minimap"></canvas>
-            </div>
-        </div>
-
-        <div id="match-over" class="panel interactive hidden">
-            <h1 id="winnerText">PLAYER WINS!</h1>
-            <button id="btnBackToMenu">Back to Menu</button>
-        </div>
-        
+<div id="menu-screen" class="screen active">
+  <div class="menu-bg" id="menu-bg"></div>
+  <div class="menu-container">
+    <div class="menu-title">Steel Thunder</div>
+    <div class="menu-subtitle">Tank Warfare</div>
+    <div class="peer-status" id="peer-status"><span class="peer-dot off" id="peer-dot"></span><span id="peer-text">Connecting to PeerJS...</span></div>
+    <input class="name-input" id="name-input" type="text" placeholder="Enter your name" maxlength="16" autocomplete="off">
+    <div class="option-group">
+      <div class="option-label">Map Size</div>
+      <div class="option-buttons" id="map-opts">
+        <button class="opt-btn sel" data-val="2000">2000 x 2000</button>
+        <button class="opt-btn" data-val="4k">4K (3840x2160)</button>
+      </div>
     </div>
+    <div class="option-group">
+      <div class="option-label">Best Of</div>
+      <div class="option-buttons" id="bo-opts">
+        <button class="opt-btn" data-val="3">3</button>
+        <button class="opt-btn sel" data-val="5">5</button>
+        <button class="opt-btn" data-val="10">10</button>
+      </div>
+    </div>
+    <div class="action-buttons">
+      <button class="action-btn btn-host" id="btn-host">Host Game</button>
+      <button class="action-btn btn-join" id="btn-join">Join Game</button>
+    </div>
+  </div>
+</div>
+
+<div id="lobby-screen" class="screen">
+  <div class="lobby-box" id="lobby-box"></div>
+</div>
+
+<div id="game-screen" class="screen">
+  <canvas id="game-canvas"></canvas>
+  <div class="hud hud-top" id="hud-top"></div>
+  <div class="hud hud-bl" id="hud-hp"></div>
+  <div class="hud-weapon" id="hud-weapon"></div>
+  <div class="hud-ctrl">WASD Move &middot; Mouse Aim &middot; Click Shoot &middot; 1-4 Switch Gun</div>
+  <div id="dmg-flash"></div>
+  <div class="toast-el" id="toast-el"></div>
+</div>
+
+<div id="overlay"><div class="ol-content" id="ol-content"></div></div>
 
 <script>
-/** * GLOBALS & CONFIG */
-const WORLD_SIZE = 2000;
-const TANK_COLORS = ['#ff4444', '#4444ff', '#44ff44', '#ffff44'];
-const WEAPONS = [
-    { id: 1, name: "Machine Gun", damage: 5, speed: 25, reload: 100, recoil: 3, radius: 3, shake: 0, splash: 0 },
-    { id: 2, name: "20mm Cannon", damage: 20, speed: 18, reload: 500, recoil: 8, radius: 5, shake: 2, splash: 30 },
-    { id: 3, name: "50mm Cannon", damage: 50, speed: 14, reload: 1500, recoil: 20, radius: 8, shake: 8, splash: 80 },
-    { id: 4, name: "150mm Giant", damage: 100, speed: 10, reload: 3500, recoil: 50, radius: 12, shake: 20, splash: 200 }
-];
+/* ===== CONFIG ===== */
+const CFG={WALL:40,MAPS:{'2000':{w:2000,h:2000},'4k':{w:3840,h:2160}},
+  GUNS:[
+    {id:'mg',name:'Machine Gun',dmg:8,speed:14,cd:100,mag:30,reload:1500,color:'#ffcc44'},
+    {id:'20mm',name:'20mm Cannon',dmg:18,speed:11,cd:250,mag:15,reload:2200,color:'#ff9944'},
+    {id:'50mm',name:'50mm Cannon',dmg:35,speed:8,cd:600,mag:6,reload:3000,color:'#ff6644'},
+    {id:'150mm',name:'150mm Cannon',dmg:80,speed:5,cd:1800,mag:1,reload:4000,color:'#ff4444'}
+  ]};
 
-const canvas = document.getElementById('gameCanvas');
-const ctx = canvas.getContext('2d');
-const minimap = document.getElementById('minimap');
-const mctx = minimap.getContext('2d');
-let cw = canvas.width = window.innerWidth;
-let ch = canvas.height = window.innerHeight;
-minimap.width = 150; minimap.height = 150;
-
-window.addEventListener('resize', () => {
-    cw = canvas.width = window.innerWidth;
-    ch = canvas.height = window.innerHeight;
-});
-
-function mulberry32(a) {
-    return function() {
-      var t = a += 0x6D2B79F5;
-      t = Math.imul(t ^ t >>> 15, t | 1);
-      t ^= t + Math.imul(t ^ t >>> 7, t | 61);
-      return ((t ^ t >>> 14) >>> 0) / 4294967296;
-    }
+/* ===== SOUND ===== */
+class Snd{
+  constructor(){this.c=null;this.nb=null;this.lc=0;this.lk=0}
+  init(){if(this.c)return;this.c=new(window.AudioContext||window.webkitAudioContext)();const sr=this.c.sampleRate,b=this.c.createBuffer(1,sr,sr),d=b.getChannelData(0);for(let i=0;i<sr;i++)d[i]=Math.random()*2-1;this.nb=b}
+  resume(){if(this.c&&this.c.state==='suspended')this.c.resume()}
+  _n(){const s=this.c.createBufferSource();s.buffer=this.nb;s.loop=false;return s}
+  clank(){if(!this.c)return;const t=this.c.currentTime;if(t-this.lc<.18)return;this.lc=t;const o=this.c.createOscillator();o.type='triangle';o.frequency.setValueAtTime(1100+Math.random()*700,t);o.frequency.exponentialRampToValueAtTime(250,t+.06);const g=this.c.createGain();g.gain.setValueAtTime(.09,t);g.gain.exponentialRampToValueAtTime(.001,t+.07);const n=this._n(),ng=this.c.createGain();ng.gain.setValueAtTime(.05,t);ng.gain.exponentialRampToValueAtTime(.001,t+.04);const f=this.c.createBiquadFilter();f.type='bandpass';f.frequency.value=3000;f.Q.value=3;o.connect(g).connect(this.c.destination);n.connect(f).connect(ng).connect(this.c.destination);o.start(t);o.stop(t+.07);n.start(t);n.stop(t+.05);if(Math.random()<.12&&t-this.lk>.6)this.klonk()}
+  klonk(){if(!this.c)return;const t=this.c.currentTime;this.lk=t;const o=this.c.createOscillator();o.type='sine';o.frequency.setValueAtTime(280+Math.random()*80,t);o.frequency.exponentialRampToValueAtTime(60,t+.18);const g=this.c.createGain();g.gain.setValueAtTime(.16,t);g.gain.exponentialRampToValueAtTime(.001,t+.2);const n=this._n(),ng=this.c.createGain();ng.gain.setValueAtTime(.1,t);ng.gain.exponentialRampToValueAtTime(.001,t+.07);const f=this.c.createBiquadFilter();f.type='lowpass';f.frequency.value=900;o.connect(g).connect(this.c.destination);n.connect(f).connect(ng).connect(this.c.destination);o.start(t);o.stop(t+.2);n.start(t);n.stop(t+.08)}
+  grind(){if(!this.c)return;const t=this.c.currentTime;const n=this._n(),g=this.c.createGain();g.gain.setValueAtTime(.025,t);g.gain.exponentialRampToValueAtTime(.001,t+.025);const f=this.c.createBiquadFilter();f.type='highpass';f.frequency.value=4000;f.Q.value=2;n.connect(f).connect(g).connect(this.c.destination);n.start(t);n.stop(t+.03)}
+  fire(gun){if(!this.c)return;const t=this.c.currentTime;const n=this._n(),ng=this.c.createGain();const vol=.15+gun.dmg*.004;ng.gain.setValueAtTime(vol,t);ng.gain.exponentialRampToValueAtTime(.001,t+.15);const f=this.c.createBiquadFilter();f.type='bandpass';f.frequency.value=600+gun.dmg*3;f.Q.value=1;n.connect(f).connect(ng).connect(this.c.destination);n.start(t);n.stop(t+.15);const o=this.c.createOscillator();o.type='sine';o.frequency.setValueAtTime(120-gun.dmg*.5,t);o.frequency.exponentialRampToValueAtTime(30,t+.3);const og=this.c.createGain();og.gain.setValueAtTime(.15+gun.dmg*.002,t);og.gain.exponentialRampToValueAtTime(.001,t+.3);o.connect(og).connect(this.c.destination);o.start(t);o.stop(t+.3)}
+  impact(){if(!this.c)return;const t=this.c.currentTime;const o=this.c.createOscillator();o.type='triangle';o.frequency.setValueAtTime(1800+Math.random()*600,t);o.frequency.exponentialRampToValueAtTime(400,t+.08);const g=this.c.createGain();g.gain.setValueAtTime(.14,t);g.gain.exponentialRampToValueAtTime(.001,t+.1);o.connect(g).connect(this.c.destination);o.start(t);o.stop(t+.1)}
+  explode(){if(!this.c)return;const t=this.c.currentTime;const n=this._n(),ng=this.c.createGain();ng.gain.setValueAtTime(.38,t);ng.gain.exponentialRampToValueAtTime(.001,t+.6);const f=this.c.createBiquadFilter();f.type='lowpass';f.frequency.setValueAtTime(2000,t);f.frequency.exponentialRampToValueAtTime(100,t+.5);n.connect(f).connect(ng).connect(this.c.destination);n.start(t);n.stop(t+.6);const o=this.c.createOscillator();o.type='sine';o.frequency.setValueAtTime(60,t);o.frequency.exponentialRampToValueAtTime(20,t+.5);const og=this.c.createGain();og.gain.setValueAtTime(.28,t);og.gain.exponentialRampToValueAtTime(.001,t+.5);o.connect(og).connect(this.c.destination);o.start(t);o.stop(t+.5)}
+  horn(){if(!this.c)return;const t=this.c.currentTime;[440,554,659].forEach(fr=>{const o=this.c.createOscillator();o.type='square';o.frequency.value=fr;const g=this.c.createGain();g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(.06,t+.05);g.gain.setValueAtTime(.06,t+.2);g.gain.exponentialRampToValueAtTime(.001,t+.4);const f=this.c.createBiquadFilter();f.type='lowpass';f.frequency.value=1200;o.connect(f).connect(g).connect(this.c.destination);o.start(t);o.stop(t+.4)})}
+  reload(){if(!this.c)return;const t=this.c.currentTime;const o=this.c.createOscillator();o.type='square';o.frequency.setValueAtTime(200,t);o.frequency.setValueAtTime(300,t+.05);const g=this.c.createGain();g.gain.setValueAtTime(.04,t);g.gain.exponentialRampToValueAtTime(.001,t+.1);const f=this.c.createBiquadFilter();f.type='lowpass';f.frequency.value=600;o.connect(f).connect(g).connect(this.c.destination);o.start(t);o.stop(t+.1)}
 }
-function hashString(str) {
-    let h = 1779033703 ^ str.length;
-    for(let i = 0; i < str.length; i++) {
-        h = Math.imul(h ^ str.charCodeAt(i), 3432918353); h = h << 13 | h >>> 19;
-    }
-    return h;
-}
+const snd=new Snd();
 
-let gameState = {
-    status: 'menu',
-    tanks: {},
-    bullets: [],
-    particles: [],
-    obstacles: [],
-    scores: {},
-    boLimit: 3,
-    winner: null,
-    roundActive: false
-};
-
-let localInput = { w: false, a: false, s: false, d: false, mx: 0, my: 0, shoot: false, weapon: 1 };
-let localPlayerId = null;
-let camera = { x: WORLD_SIZE/2, y: WORLD_SIZE/2, shake: 0 };
-let lastTime = performance.now();
-let peer = null;
-let isHost = false;
-let connections = {};
-let hostConn = null;
-
-const UI = {
-    menu: document.getElementById('menu'),
-    lobby: document.getElementById('lobby'),
-    hud: document.getElementById('hud'),
-    matchOver: document.getElementById('match-over'),
-    status: document.getElementById('menuStatus')
-};
-
-function showUI(elementId) {
-    Object.values(UI).forEach(el => el.classList.add('hidden'));
-    if(UI[elementId]) UI[elementId].classList.remove('hidden');
-}
-
-window.addEventListener('keydown', (e) => {
-    const k = e.key.toLowerCase();
-    if(k === 'w') localInput.w = true; if(k === 's') localInput.s = true;
-    if(k === 'a') localInput.a = true; if(k === 'd') localInput.d = true;
-    if(e.key >= '1' && e.key <= '4') localInput.weapon = parseInt(e.key);
-});
-window.addEventListener('keyup', (e) => {
-    const k = e.key.toLowerCase();
-    if(k === 'w') localInput.w = false; if(k === 's') localInput.s = false;
-    if(k === 'a') localInput.a = false; if(k === 'd') localInput.d = false;
-});
-window.addEventListener('mousemove', (e) => { localInput.mx = e.clientX; localInput.my = e.clientY; });
-window.addEventListener('mousedown', (e) => { if(e.button === 0) localInput.shoot = true; });
-window.addEventListener('mouseup', (e) => { if(e.button === 0) localInput.shoot = false; });
-
-function initPeer(callback) {
-    UI.status.innerText = "Connecting...";
-    peer = new Peer();
-    peer.on('open', (id) => { localPlayerId = id; UI.status.innerText = "Connected."; callback(); });
-    peer.on('error', (err) => { UI.status.innerText = "Error: " + err.type; });
-}
-
-document.getElementById('btnHost').addEventListener('click', () => {
-    initPeer(() => {
-        isHost = true;
-        gameState.boLimit = parseInt(document.getElementById('matchMode').value);
-        generateMap(document.getElementById('mapSeed').value);
-        addPlayerToGame(localPlayerId, document.getElementById('playerName').value, 0);
-        document.getElementById('displayHostId').innerText = localPlayerId;
-        updateLobbyUI();
-        showUI('lobby');
-        peer.on('connection', (conn) => {
-            conn.on('data', (data) => {
-                if(data.type === 'join') {
-                    connections[conn.peer] = conn;
-                    addPlayerToGame(conn.peer, data.name, Object.keys(gameState.tanks).length);
-                    updateLobbyUI();
-                    broadcast({ type: 'lobbyUpdate', tanks: gameState.tanks });
-                } else if (data.type === 'input') {
-                    if(gameState.tanks[conn.peer]) gameState.tanks[conn.peer].input = data.input;
-                }
-            });
-            conn.on('close', () => { delete connections[conn.peer]; delete gameState.tanks[conn.peer]; updateLobbyUI(); });
-        });
+/* ===== NETWORK ===== */
+class Net{
+  constructor(){this.isHost=false;this.myId=-1;this.myName='';this.peerName='';this.peerId=null;this.connected=false;this._kicking=false;this.onMsg=null;this.onConn=null;this.onDisc=null;this.onPlayerJoin=null;this.onKickDone=null;this.peer=null;this.conn=null}
+  host(settings,name){
+    return new Promise((res,rej)=>{
+      this.isHost=true;this.myId=0;this.myName=name;
+      this.peer=new Peer();
+      this.peer.on('open',id=>{this.peerId=id;res(id)});
+      this.peer.on('connection',c=>this._setupConn(c));
+      this.peer.on('error',e=>rej(e));
     });
-});
+  }
+  join(hostId,name){
+    return new Promise((res,rej)=>{
+      this.isHost=false;this.myId=1;this.myName=name;
+      this.peer=new Peer();
+      this.peer.on('open',()=>{
+        this.conn=this.peer.connect(hostId,{reliable:false});
+        this._setupConn(this.conn);
+        const handler=()=>{this.conn.off('open',handler);this.conn.send({type:'hello',name});res()};
+        this.conn.on('open',handler);
+        const errHandler=()=>{this.conn.off('error',errHandler);rej(new Error('connect-fail'))};
+        this.conn.on('error',errHandler);
+      });
+      this.peer.on('error',e=>rej(e));
+    });
+  }
+  _setupConn(c){
+    if(this.conn&&this.conn.open){c.on('open',()=>{c.send({type:'room_full'});setTimeout(()=>{try{c.close()}catch(e){}},200)});return}
+    this.conn=c;
+    c.on('data',d=>{
+      if(d.type==='hello'&&this.isHost){this.peerName=d.name;this.connected=true;c.send({type:'welcome',settings:G.settings,mapKey:G.mapKey,hostName:this.myName});if(this.onPlayerJoin)this.onPlayerJoin(d.name);if(this.onConn)this.onConn();return}
+      if(d.type==='welcome'&&!this.isHost){G.settings=d.settings;G.mapKey=d.mapKey;this.peerName=d.hostName;this.connected=true;if(this.onConn)this.onConn();return}
+      if(d.type==='kicked'){this.connected=false;toast('You were kicked',true);setTimeout(()=>backToMenu(),800);return}
+      if(d.type==='room_full'){toast('Room is full',true);return}
+      if(d.type==='start_game'){startGame();return}
+      if(this.onMsg)this.onMsg(d);
+    });
+    c.on('close',()=>{if(!this._kicking){this.connected=false;this.conn=null;this.peerName='';if(this.onDisc)this.onDisc()}else{this.conn=null}});
+    c.on('error',()=>{if(!this._kicking){this.connected=false;this.conn=null;if(this.onDisc)this.onDisc()}});
+  }
+  send(d){if(this.conn&&this.conn.open){try{this.conn.send(d)}catch(e){}}}
+  kick(){if(!this.conn||!this.conn.open)return;this._kicking=true;this.send({type:'kicked'});setTimeout(()=>{try{this.conn.close()}catch(e){}this.conn=null;this.connected=false;const n=this.peerName;this.peerName='';this._kicking=false;if(this.onKickDone)this.onKickDone(n)},200)}
+  destroy(){if(this.conn){try{this.conn.close()}catch(e){}this.conn=null}if(this.peer){try{this.peer.destroy()}catch(e){}this.peer=null}this.connected=false;this.peerName='';this.peerId=null}
+}
+const net=new Net();
 
-function addPlayerToGame(id, name, index) {
-    gameState.tanks[id] = {
-        id, name, color: TANK_COLORS[index % 4], x: 0, y: 0, angle: 0, turretAngle: 0,
-        hp: 100, maxHp: 100, lastShot: 0, vx: 0, vy: 0,
-        input: { ...localInput }
-    };
-    gameState.scores[id] = 0;
+/* ===== GAME STATE ===== */
+let G={state:'menu',settings:{bestOf:5},mapKey:'2000',mapW:2000,mapH:2000,scores:[0,0],round:0,tanks:[],projectiles:[],particles:[],obstacles:[],groundCvs:null,shake:0,cdVal:3,cdTime:0,reTime:0,lastFire:[0,0],mFlash:[0,0],cam:{x:0,y:0},myTank:null,remTank:null,gunIdx:[0,0],ammo:[30,30],reloading:[false,false],reloadStart:[0,0]};
+const keys={};let mx=0,my=0,mDown=false;let canvas,ctx,raf=null,lastT=0;
+let menuCfg={name:'',mapKey:'2000',bestOf:5};let lastGrindT=0,lastRemoteTime=0;
+let rlCanvas,rlCtx; // reload ring canvas
+
+/* ===== OBSTACLES ===== */
+function genObs(w,h){
+  const o=[],s=Math.min(w,h)/2000,cx=w/2,cy=h/2,T=CFG.WALL;
+  o.push({x:cx-90*s,y:cy-12*s,w:180*s,h:24*s,t:'c'});
+  o.push({x:cx-12*s,y:cy-90*s,w:24*s,h:180*s,t:'c'});
+  [{dx:-.28,dy:-.28,f:0},{dx:.28,dy:-.28,f:1},{dx:-.28,dy:.28,f:1},{dx:.28,dy:.28,f:0}].forEach(q=>{
+    const qx=cx+q.dx*w,qy=cy+q.dy*h;
+    if(q.f){o.push({x:qx-60*s,y:qy-10*s,w:60*s,h:20*s,t:'c'});o.push({x:qx-10*s,y:qy-10*s,w:20*s,h:60*s,t:'c'})}
+    else{o.push({x:qx,y:qy-10*s,w:60*s,h:20*s,t:'c'});o.push({x:qx-10*s,y:qy-50*s,w:20*s,h:60*s,t:'c'})}
+  });
+  [{dx:-.15,dy:-.42},{dx:.15,dy:-.42},{dx:-.15,dy:.42},{dx:.15,dy:.42},{dx:-.42,dy:-.15},{dx:-.42,dy:.15},{dx:.42,dy:-.15},{dx:.42,dy:.15}].forEach(c=>{o.push({x:cx+c.dx*w-16*s,y:cy+c.dy*h-16*s,w:32*s,h:32*s,t:'k'})});
+  o.push({x:w*.08,y:cy-100*s,w:20*s,h:200*s,t:'c'});
+  o.push({x:w*.92-20*s,y:cy-100*s,w:20*s,h:200*s,t:'c'});
+  o.push({x:0,y:0,w:w,h:T,t:'w'});o.push({x:0,y:h-T,w:w,h:T,t:'w'});
+  o.push({x:0,y:0,w:T,h:h,t:'w'});o.push({x:w-T,y:0,w:T,h:h,t:'w'});
+  return o;
+}
+function mkGround(w,h){
+  const c=document.createElement('canvas');c.width=w;c.height=h;const g=c.getContext('2d');
+  g.fillStyle='#2d3224';g.fillRect(0,0,w,h);
+  for(let i=0;i<8000;i++){const px=Math.random()*w,py=Math.random()*h,a=Math.random()*.06;g.fillStyle=Math.random()>.5?`rgba(255,255,255,${a})`:`rgba(0,0,0,${a})`;g.fillRect(px,py,2+Math.random()*3,2+Math.random()*3)}
+  g.strokeStyle='rgba(255,255,255,0.025)';g.lineWidth=1;
+  for(let x=0;x<=w;x+=100){g.beginPath();g.moveTo(x,0);g.lineTo(x,h);g.stroke()}
+  for(let y=0;y<=h;y+=100){g.beginPath();g.moveTo(0,y);g.lineTo(w,y);g.stroke()}
+  g.strokeStyle='rgba(143,179,58,0.15)';g.lineWidth=2;g.strokeRect(CFG.WALL,CFG.WALL,w-CFG.WALL*2,h-CFG.WALL*2);
+  return c;
+}
+function mkTank(pid,w,h){
+  const m=120,sp=[{x:m,y:m,a:Math.PI*.25},{x:w-m,y:h-m,a:-Math.PI*.75}];
+  return{pid,x:sp[pid].x,y:sp[pid].y,ba:sp[pid].a,ta:sp[pid].a,hp:100,mhp:100,alive:true,moving:false,tp:0};
 }
 
-function broadcast(data) { Object.values(connections).forEach(c => c.open && c.send(data)); }
-
-document.getElementById('btnStartGame').addEventListener('click', () => {
-    if(!isHost) return;
-    startRound();
-    gameState.status = 'playing';
-    broadcast({ type: 'start', state: gameState });
-    showUI('hud');
-});
-
-function updateLobbyUI() {
-    const list = document.getElementById('playerList');
-    list.innerHTML = '';
-    Object.values(gameState.tanks).forEach(t => {
-        let row = document.createElement('div');
-        row.className = 'player-row';
-        row.innerHTML = `<span>${t.name}</span>`;
-        if(t.id !== localPlayerId) {
-            let btn = document.createElement('button'); btn.innerText = 'KICK';
-            btn.onclick = () => { connections[t.id].send({ type: 'kicked' }); connections[t.id].close(); };
-            row.appendChild(btn);
-        }
-        list.appendChild(row);
-    });
+/* ===== ROUNDS ===== */
+function winsNeeded(){return Math.floor(G.settings.bestOf/2)+1}
+function initRound(){
+  G.round++;G.tanks=[mkTank(0,G.mapW,G.mapH),mkTank(1,G.mapW,G.mapH)];
+  G.myTank=G.tanks[net.myId];G.remTank=G.tanks[1-net.myId];
+  G.projectiles=[];G.particles=[];G.lastFire=[0,0];G.mFlash=[0,0];G.shake=0;
+  G.gunIdx=[0,0];G.ammo=[CFG.GUNS[0].mag,CFG.GUNS[0].mag];G.reloading=[false,false];G.reloadStart=[0,0];
+  G.state='countdown';G.cdVal=3;G.cdTime=performance.now();
+  snd.horn();showCD(3);buildHUD();updateHUD();buildWeaponHUD();
+}
+function checkRoundEnd(){
+  if(G.state!=='playing')return;
+  if(!G.myTank.alive&&!G.remTank.alive)endRound(-1);
+  else if(!G.remTank.alive)endRound(net.myId);
+  else if(!G.myTank.alive)endRound(1-net.myId);
+  if(net.isHost&&G.state==='roundEnd'){setTimeout(()=>{if(G.state!=='gameEnd'){initRound();net.send({type:'next_round'})}},3000)}
+}
+function endRound(wid){
+  G.state='roundEnd';if(wid>=0)G.scores[wid]++;updateHUD();
+  if(G.scores[0]>=winsNeeded()||G.scores[1]>=winsNeeded()){
+    const gw=G.scores[0]>=winsNeeded()?0:1;const wt=gw===net.myId?'VICTORY':'DEFEAT';const wc=gw===net.myId?'var(--accent)':'var(--danger)';
+    showOL(`<div class="ol-title" style="color:${wc}">${wt}</div><div class="ol-sub">Final: ${G.scores[0]} - ${G.scores[1]}</div><button class="ol-btn" onclick="backToMenu()">Back to Menu</button>`);G.state='gameEnd';return;
+  }
+  const wt=wid<0?'DRAW':wid===net.myId?'ROUND WON':'ROUND LOST';const wc=wid<0?'var(--accent2)':wid===net.myId?'var(--accent)':'var(--danger)';
+  showOL(`<div class="ol-title" style="color:${wc}">${wt}</div><div class="ol-sub">${G.scores[0]} - ${G.scores[1]}</div><div class="ol-sub" style="font-size:.78rem">Next round starting...</div>`);
+  G.reTime=performance.now();
 }
 
-document.getElementById('btnJoin').addEventListener('click', () => {
-    const hostId = document.getElementById('hostIdInput').value.trim();
-    initPeer(() => {
-        isHost = false;
-        hostConn = peer.connect(hostId);
-        hostConn.on('data', (data) => {
-            if(data.type === 'start') { gameState = data.state; showUI('hud'); }
-            else if(data.type === 'sync') { 
-                gameState.tanks = data.tanks; gameState.bullets = data.bullets; 
-                gameState.particles = data.particles; gameState.scores = data.scores;
-                if(data.shake > camera.shake) camera.shake = data.shake;
-                updateHUD();
-            }
-            else if(data.type === 'matchOver') {
-                document.getElementById('winnerText').innerText = `${data.winnerName} WINS!`;
-                showUI('match-over');
-            }
-            else if(data.type === 'kicked') { alert("Kicked!"); location.reload(); }
-        });
-        hostConn.on('open', () => hostConn.send({ type: 'join', name: document.getElementById('playerName').value }));
-    });
-});
-
-/** * PELILOGIIKKA */
-function generateMap(seedStr) {
-    const prng = mulberry32(hashString(seedStr));
-    gameState.obstacles = [
-        {x: -50, y: -50, w: WORLD_SIZE+100, h: 50}, {x: -50, y: WORLD_SIZE, w: WORLD_SIZE+100, h: 50},
-        {x: -50, y: 0, w: 50, h: WORLD_SIZE}, {x: WORLD_SIZE, y: 0, w: 50, h: WORLD_SIZE}
-    ];
-    for(let i=0; i<100; i++) {
-        let w = 40 + prng()*100, h = 40 + prng()*100;
-        gameState.obstacles.push({x: prng()*(WORLD_SIZE-w), y: prng()*(WORLD_SIZE-h), w, h});
+/* ===== PHYSICS ===== */
+const SPEED=1.2,REVERSE=.6,TURN=0.022;
+function updateTank(tank,inp){
+  if(!tank.alive)return;const R=26,T=CFG.WALL;let moved=false;
+  if(inp.l)tank.ba-=TURN;if(inp.r)tank.ba+=TURN;
+  let spd=0;if(inp.u){spd=SPEED;moved=true}if(inp.d){spd=-REVERSE;moved=true}
+  if(spd!==0){tank.x+=Math.cos(tank.ba)*spd;tank.y+=Math.sin(tank.ba)*spd;tank.tp+=spd*.15}
+  tank.moving=moved;
+  const mnX=T+R,mxX=G.mapW-T-R,mnY=T+R,mxY=G.mapH-T-R;
+  tank.x=Math.max(mnX,Math.min(mxX,tank.x));tank.y=Math.max(mnY,Math.min(mxY,tank.y));
+  G.obstacles.forEach(ob=>{
+    if(ob.t==='w')return;
+    const cx=Math.max(ob.x,Math.min(ob.x+ob.w,tank.x)),cy=Math.max(ob.y,Math.min(ob.y+ob.h,tank.y));
+    const dx=tank.x-cx,dy=tank.y-cy,dist=Math.sqrt(dx*dx+dy*dy);
+    if(dist<R&&dist>0){const p=R-dist;tank.x+=dx/dist*p;tank.y+=dy/dist*p}
+    else if(dist===0){const tl=tank.x-ob.x,tr=ob.x+ob.w-tank.x,tt=tank.y-ob.y,tb=ob.y+ob.h-tank.y;const m=Math.min(tl,tr,tt,tb);if(m===tl)tank.x=ob.x-R;else if(m===tr)tank.x=ob.x+ob.w+R;else if(m===tt)tank.y=ob.y-R;else tank.y=ob.y+ob.h+R}
+    tank.x=Math.max(mnX,Math.min(mxX,tank.x));tank.y=Math.max(mnY,Math.min(mxY,tank.y));
+  });
+  if(tank===G.myTank){const wmx=mx+G.cam.x,wmy=my+G.cam.y;tank.ta=Math.atan2(wmy-tank.y,wmx-tank.x)}
+}
+function tryFire(){
+  const tank=G.myTank;if(!tank.alive)return;
+  const mid=net.myId;const gun=CFG.GUNS[G.gunIdx[mid]];
+  if(G.reloading[mid])return;
+  if(G.ammo[mid]<=0){startReload(mid);return}
+  const now=performance.now();if(now-G.lastFire[mid]<gun.cd)return;
+  G.lastFire[mid]=now;G.mFlash[mid]=now;G.ammo[mid]--;
+  const bx=tank.x+Math.cos(tank.ta)*34,by=tank.y+Math.sin(tank.ta)*34;
+  const vx=Math.cos(tank.ta)*gun.speed,vy=Math.sin(tank.ta)*gun.speed;
+  G.projectiles.push({x:bx,y:by,vx,vy,own:mid,dmg:gun.dmg,life:180});
+  snd.fire(gun);G.shake=Math.max(G.shake,2+gun.dmg*.04);
+  net.send({type:'fire',x:bx,y:by,vx,vy,own:mid,dmg:gun.dmg});
+  if(G.ammo[mid]<=0)startReload(mid);
+}
+function startReload(mid){
+  if(G.reloading[mid])return;G.reloading[mid]=true;G.reloadStart[mid]=performance.now();snd.reload();
+}
+function updateReload(mid){
+  if(!G.reloading[mid])return;
+  const gun=CFG.GUNS[G.gunIdx[mid]];
+  if(performance.now()-G.reloadStart[mid]>=gun.reload){G.reloading[mid]=false;G.ammo[mid]=gun.mag}
+}
+function switchGun(idx){
+  if(idx<0||idx>=CFG.GUNS.length)return;
+  const mid=net.myId;if(idx===G.gunIdx[mid])return;
+  G.gunIdx[mid]=idx;G.reloading[mid]=false;G.ammo[mid]=CFG.GUNS[idx].mag;
+  buildWeaponHUD();
+}
+function updateProj(){
+  const w=G.mapW,h=G.mapH,T=CFG.WALL;
+  for(let i=G.projectiles.length-1;i>=0;i--){
+    const p=G.projectiles[i];p.x+=p.vx;p.y+=p.vy;p.life--;
+    if(p.life<=0||p.x<0||p.x>w||p.y<0||p.y>h){G.projectiles.splice(i,1);continue}
+    if(p.x<T||p.x>w-T||p.y<T||p.y>h-T){sparks(p.x,p.y,4);G.projectiles.splice(i,1);continue}
+    let hitOb=false;
+    for(const ob of G.obstacles){if(ob.t==='w')continue;if(p.x>=ob.x&&p.x<=ob.x+ob.w&&p.y>=ob.y&&p.y<=ob.y+ob.h){sparks(p.x,p.y,5);hitOb=true;break}}
+    if(hitOb){G.projectiles.splice(i,1);continue}
+    if(p.own!==net.myId&&G.myTank.alive){
+      const dx=p.x-G.myTank.x,dy=p.y-G.myTank.y;
+      if(Math.sqrt(dx*dx+dy*dy)<26+3){G.myTank.hp-=p.dmg;if(G.myTank.hp<=0){G.myTank.hp=0;G.myTank.alive=false;boom(G.myTank.x,G.myTank.y);snd.explode();G.shake=12;flashDmg();net.send({type:'dead'});checkRoundEnd()}else{sparks(p.x,p.y,6);flashDmg()}G.projectiles.splice(i,1);snd.impact();G.shake=Math.max(G.shake,2);updateHUD();continue}
     }
+  }
 }
+function sparks(x,y,n){for(let i=0;i<n;i++){const a=Math.random()*Math.PI*2,s=1+Math.random()*3;G.particles.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,life:15+Math.random()*10,ml:25,t:'s'})}}
+function boom(x,y){for(let i=0;i<30;i++){const a=Math.random()*Math.PI*2,s=1+Math.random()*5,l=20+Math.random()*30;G.particles.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,life:l,ml:l,t:'f'})}for(let i=0;i<15;i++){const a=Math.random()*Math.PI*2,s=.5+Math.random()*2,l=30+Math.random()*40;G.particles.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,life:l,ml:l,t:'k'})}}
+function updatePart(){for(let i=G.particles.length-1;i>=0;i--){const p=G.particles[i];p.x+=p.vx;p.y+=p.vy;p.vx*=.96;p.vy*=.96;p.life--;if(p.life<=0)G.particles.splice(i,1)}}
 
-function startRound() {
-    const spawns = [{x:200,y:200}, {x:WORLD_SIZE-200,y:WORLD_SIZE-200}, {x:WORLD_SIZE-200,y:200}, {x:200,y:WORLD_SIZE-200}];
-    let i=0;
-    Object.values(gameState.tanks).forEach(t => {
-        t.hp = 100; t.x = spawns[i].x; t.y = spawns[i].y; t.vx = 0; t.vy = 0; i++;
+/* ===== RENDERING ===== */
+function render(){
+  const W=canvas.width,H=canvas.height;ctx.clearRect(0,0,W,H);
+  let tx=G.myTank.x-W/2,ty=G.myTank.y-H/2;
+  if(G.mapW<=W)tx=-(W-G.mapW)/2;else tx=Math.max(0,Math.min(G.mapW-W,tx));
+  if(G.mapH<=H)ty=-(H-G.mapH)/2;else ty=Math.max(0,Math.min(G.mapH-H,ty));
+  G.cam.x+=(tx-G.cam.x)*.12;G.cam.y+=(ty-G.cam.y)*.12;
+  ctx.save();
+  if(G.shake>.5){ctx.translate((Math.random()-.5)*G.shake,(Math.random()-.5)*G.shake);G.shake*=.88}else G.shake=0;
+  ctx.translate(-G.cam.x,-G.cam.y);
+  if(G.groundCvs)ctx.drawImage(G.groundCvs,0,0);
+  drawObs();drawProj();G.tanks.forEach(t=>{if(t.alive)drawTank(t)});drawPart();
+  ctx.restore();
+}
+function drawObs(){
+  G.obstacles.forEach(ob=>{
+    if(ob.t==='w'){ctx.fillStyle='#4a4e40';ctx.fillRect(ob.x,ob.y,ob.w,ob.h);ctx.fillStyle='#5a5e50';if(ob.w>ob.h){ctx.fillRect(ob.x,ob.y,ob.w,4);ctx.fillRect(ob.x,ob.y+ob.h-4,ob.w,4)}else{ctx.fillRect(ob.x,ob.y,4,ob.h);ctx.fillRect(ob.x+ob.w-4,ob.y,4,ob.h)}}
+    else if(ob.t==='c'){ctx.fillStyle='#5a5e54';ctx.fillRect(ob.x,ob.y,ob.w,ob.h);ctx.strokeStyle='#4a4e44';ctx.lineWidth=1.5;ctx.strokeRect(ob.x+1,ob.y+1,ob.w-2,ob.h-2);ctx.strokeStyle='rgba(0,0,0,0.15)';ctx.lineWidth=1;for(let lx=ob.x+16;lx<ob.x+ob.w;lx+=16){ctx.beginPath();ctx.moveTo(lx,ob.y);ctx.lineTo(lx,ob.y+ob.h);ctx.stroke()}}
+    else{ctx.fillStyle='#6a5a3a';ctx.fillRect(ob.x,ob.y,ob.w,ob.h);ctx.strokeStyle='#5a4a2a';ctx.lineWidth=2;ctx.strokeRect(ob.x+1,ob.y+1,ob.w-2,ob.h-2);ctx.strokeStyle='rgba(0,0,0,0.2)';ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(ob.x,ob.y);ctx.lineTo(ob.x+ob.w,ob.y+ob.h);ctx.moveTo(ob.x+ob.w,ob.y);ctx.lineTo(ob.x,ob.y+ob.h);ctx.stroke()}
+  });
+}
+function drawTank(tank){
+  const pid=tank.pid;const cols=pid===0?{b:'#5a8a44',bd:'#4a7a34',tu:'#6a9a54',tr:'#3a4a30'}:{b:'#8a4444',bd:'#7a3434',tu:'#9a5454',tr:'#4a3030'};
+  ctx.save();ctx.translate(tank.x,tank.y);
+  ctx.save();ctx.rotate(tank.ba);
+  ctx.fillStyle=cols.tr;ctx.fillRect(-24,-17,48,7);ctx.fillRect(-24,10,48,7);
+  ctx.strokeStyle='rgba(255,255,255,0.12)';ctx.lineWidth=1;const tOff=tank.tp%8;
+  for(let i=-24+tOff;i<24;i+=8){ctx.beginPath();ctx.moveTo(i,-17);ctx.lineTo(i,-10);ctx.stroke();ctx.beginPath();ctx.moveTo(i,10);ctx.lineTo(i,17);ctx.stroke()}
+  ctx.fillStyle=cols.b;rr(ctx,-21,-12,42,24,3);ctx.fill();ctx.strokeStyle=cols.bd;ctx.lineWidth=1.5;rr(ctx,-21,-12,42,24,3);ctx.stroke();
+  ctx.fillStyle=cols.bd;ctx.fillRect(-21,-10,9,20);ctx.restore();
+  ctx.save();ctx.rotate(tank.ta);
+  const now=performance.now();if(now-G.mFlash[pid]<80){const fs=10+Math.random()*8;const gr=ctx.createRadialGradient(34,0,0,34,0,fs);gr.addColorStop(0,'rgba(255,220,100,0.9)');gr.addColorStop(0.5,'rgba(255,150,50,0.5)');gr.addColorStop(1,'rgba(255,100,30,0)');ctx.fillStyle=gr;ctx.beginPath();ctx.arc(34,0,fs,0,Math.PI*2);ctx.fill()}
+  ctx.fillStyle='#4a4a40';ctx.fillRect(2,-3,30,6);ctx.strokeStyle='#3a3a30';ctx.lineWidth=1;ctx.strokeRect(2,-3,30,6);ctx.fillStyle='#3a3a30';ctx.fillRect(28,-4,6,8);
+  ctx.fillStyle=cols.tu;ctx.beginPath();ctx.arc(0,0,11,0,Math.PI*2);ctx.fill();ctx.strokeStyle=cols.bd;ctx.lineWidth=1.5;ctx.stroke();ctx.fillStyle=cols.bd;ctx.beginPath();ctx.arc(-3,0,3.5,0,Math.PI*2);ctx.fill();
+  ctx.restore();
+  if(tank.hp<tank.mhp){const bw=38,bh=4,bx=-bw/2,by=-28;ctx.fillStyle='rgba(0,0,0,0.6)';ctx.fillRect(bx-1,by-1,bw+2,bh+2);const r=tank.hp/tank.mhp;ctx.fillStyle=r>.5?'#8fb33a':r>.25?'#c4a43a':'#c44a3a';ctx.fillRect(bx,by,bw*r,bh)}
+  ctx.restore();
+}
+function drawProj(){
+  G.projectiles.forEach(p=>{ctx.strokeStyle=`rgba(255,200,80,0.3)`;ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(p.x,p.y);ctx.lineTo(p.x-p.vx*3,p.y-p.vy*3);ctx.stroke();ctx.fillStyle='#ffe080';ctx.beginPath();ctx.arc(p.x,p.y,Math.max(2,2+p.dmg*.02),0,Math.PI*2);ctx.fill()});
+}
+function drawPart(){
+  G.particles.forEach(p=>{const a=Math.max(0,p.life/p.ml);if(p.t==='s'){ctx.fillStyle=`rgba(255,220,100,${a})`;ctx.fillRect(p.x-1.5,p.y-1.5,3,3)}else if(p.t==='f'){const r=2+(1-a)*6;const gr=ctx.createRadialGradient(p.x,p.y,0,p.x,p.y,r);gr.addColorStop(0,`rgba(255,180,50,${a*.8})`);gr.addColorStop(1,'rgba(255,80,20,0)');ctx.fillStyle=gr;ctx.beginPath();ctx.arc(p.x,p.y,r,0,Math.PI*2);ctx.fill()}else{const r=3+(1-a)*12;ctx.fillStyle=`rgba(80,80,70,${a*.3})`;ctx.beginPath();ctx.arc(p.x,p.y,r,0,Math.PI*2);ctx.fill()}});
+}
+function rr(c,x,y,w,h,r){c.beginPath();c.moveTo(x+r,y);c.lineTo(x+w-r,y);c.quadraticCurveTo(x+w,y,x+w,y+r);c.lineTo(x+w,y+h-r);c.quadraticCurveTo(x+w,y+h,x+w-r,y+h);c.lineTo(x+r,y+h);c.quadraticCurveTo(x,y+h,x,y+h-r);c.lineTo(x,y+r);c.quadraticCurveTo(x,y,x+r,y);c.closePath()}
+
+/* ===== HUD ===== */
+function buildHUD(){
+  document.getElementById('hud-top').innerHTML=`<div class="hud-bar"><div class="hp-name"><span class="hp-label">${esc(net.myName)}</span><span class="hp-score c1" id="s0">${G.scores[0]}</span></div><div class="hud-rnd">ROUND <span id="rn">${G.round}</span><br>Best of ${G.settings.bestOf}</div><div class="hp-name"><span class="hp-score c2" id="s1">${G.scores[1]}</span><span class="hp-label">${esc(net.peerName)}</span></div></div>`;
+}
+function updateHUD(){
+  const s0=document.getElementById('s0'),s1=document.getElementById('s1'),rn=document.getElementById('rn');
+  if(s0)s0.textContent=G.scores[0];if(s1)s1.textContent=G.scores[1];if(rn)rn.textContent=G.round;
+  const el=document.getElementById('hud-hp');if(!G.myTank){el.innerHTML='';return}
+  const r=G.myTank.hp/G.myTank.mhp,cls=r<=.25?'low':'';
+  el.innerHTML=`<div class="hb-wrap"><div class="hb-lbl">HULL ${G.myTank.hp}/${G.myTank.mhp}</div><div class="hb-bg"><div class="hb-fill ${cls}" style="width:${r*100}%"></div></div></div>`;
+}
+function buildWeaponHUD(){
+  const mid=net.myId;const gun=CFG.GUNS[G.gunIdx[mid]];
+  let slots='';CFG.GUNS.forEach((g,i)=>{slots+=`<span class="w-slot${i===G.gunIdx[mid]?' active':''}">${i+1}</span>`});
+  document.getElementById('hud-weapon').innerHTML=`<div class="weapon-box"><div class="reload-ring"><canvas id="rl-cvs" width="104" height="104"></canvas><div class="rl-label" id="rl-lbl">${G.ammo[mid]}</div></div><div class="weapon-info"><div class="weapon-name" style="color:${gun.color}">${gun.name}</div><div class="weapon-ammo" id="w-ammo">${G.ammo[mid]} / ${gun.mag}</div><div class="weapon-slots">${slots}</div></div></div>`;
+  rlCanvas=document.getElementById('rl-cvs');rlCtx=rlCanvas.getContext('2d');
+}
+function updateWeaponHUD(){
+  const mid=net.myId;const gun=CFG.GUNS[G.gunIdx[mid]];
+  const ammoEl=document.getElementById('w-ammo');const lbl=document.getElementById('rl-lbl');
+  if(ammoEl)ammoEl.textContent=`${G.ammo[mid]} / ${gun.mag}`;
+  if(lbl)lbl.textContent=G.reloading[mid]?'R':G.ammo[mid];
+  if(!rlCtx)return;
+  const c=rlCtx,w=104,h=104,cx=52,cy=52,r=42;
+  c.clearRect(0,0,w,h);
+  // Background ring
+  c.beginPath();c.arc(cx,cy,r,0,Math.PI*2);c.strokeStyle='rgba(255,255,255,0.08)';c.lineWidth=6;c.stroke();
+  // Progress ring
+  if(G.reloading[mid]){
+    const elapsed=performance.now()-G.reloadStart[mid];
+    const progress=Math.min(1,elapsed/gun.reload);
+    c.beginPath();c.arc(cx,cy,r,-Math.PI/2,-Math.PI/2+progress*Math.PI*2);c.strokeStyle=gun.color;c.lineWidth=6;c.lineCap='round';c.stroke();c.lineCap='butt';
+  }else{
+    const ratio=G.ammo[mid]/gun.mag;
+    if(ratio>0){c.beginPath();c.arc(cx,cy,r,-Math.PI/2,-Math.PI/2+ratio*Math.PI*2);c.strokeStyle=gun.color;c.lineWidth=6;c.lineCap='round';c.stroke();c.lineCap='butt'}
+  }
+}
+function esc(s){const d=document.createElement('div');d.textContent=s;return d.innerHTML}
+
+/* ===== UI ===== */
+function showScr(id){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));document.getElementById(id).classList.add('active')}
+function showOL(h){document.getElementById('ol-content').innerHTML=h;document.getElementById('overlay').classList.add('active')}
+function hideOL(){document.getElementById('overlay').classList.remove('active')}
+function showCD(n){showOL(`<div class="cd-num">${n}</div>`)}
+function toast(msg,isErr){const t=document.getElementById('toast-el');t.textContent=msg;t.className='toast-el show '+(isErr?'err':'ok');setTimeout(()=>t.className='toast-el',2500)}
+function flashDmg(){const e=document.getElementById('dmg-flash');e.classList.add('on');setTimeout(()=>e.classList.remove('on'),120)}
+function backToMenu(){hideOL();net.destroy();G.state='menu';if(raf){cancelAnimationFrame(raf);raf=null}showScr('menu-screen')}
+
+/* ===== MENU ===== */
+function setupMenu(){
+  const bg=document.getElementById('menu-bg');for(let i=0;i<20;i++){const l=document.createElement('div');l.className='line';l.style.top=(i*5.2)+'%';l.style.opacity=.3+Math.random()*.4;bg.appendChild(l)}
+  function wire(gid,key,pars){document.getElementById(gid).querySelectorAll('.opt-btn').forEach(btn=>{btn.addEventListener('click',()=>{document.getElementById(gid).querySelectorAll('.opt-btn').forEach(b=>b.classList.remove('sel'));btn.classList.add('sel');menuCfg[key]=pars?parseInt(btn.dataset.val):btn.dataset.val})})}
+  wire('map-opts','mapKey',false);wire('bo-opts','bestOf',true);
+
+  // Host button
+  document.getElementById('btn-host').addEventListener('click',function(){
+    const name=document.getElementById('name-input').value.trim();
+    if(!name){toast('Enter your name first',true);document.getElementById('name-input').focus();return}
+    snd.init();snd.resume();
+    menuCfg.name=name;G.settings.bestOf=menuCfg.bestOf;G.mapKey=menuCfg.mapKey;
+    const m=CFG.MAPS[G.mapKey];G.mapW=m.w;G.mapH=m.h;
+    this.disabled=true;this.textContent='Creating...';
+    net.host(G.settings,name).then(id=>{
+      this.disabled=false;this.textContent='Host Game';
+      showScr('lobby-screen');
+      renderHostLobby(id);
+    }).catch(e=>{
+      this.disabled=false;this.textContent='Host Game';
+      console.error('Host error:',e);
+      if(e.type==='unavailable-id')toast('ID unavailable, retry',true);
+      else if(e.type==='network'||e.type==='server-error')toast('Cannot reach server',true);
+      else toast('Failed: '+e.type,true);
     });
-    gameState.bullets = []; gameState.particles = []; gameState.roundActive = true;
+  });
+
+  // Join button
+  document.getElementById('btn-join').addEventListener('click',function(){
+    const name=document.getElementById('name-input').value.trim();
+    if(!name){toast('Enter your name first',true);document.getElementById('name-input').focus();return}
+    snd.init();snd.resume();
+    menuCfg.name=name;
+    showScr('lobby-screen');
+    renderJoinInputLobby();
+  });
+
+  // Init PeerJS on load to show ID
+  initPeerForMenu();
 }
 
-function hostUpdate(dt) {
-    if(!gameState.roundActive) return;
-    let localShake = 0;
-
-    Object.values(gameState.tanks).forEach(t => {
-        if(t.hp <= 0) return;
-        if(t.input.a) t.angle -= 0.05; if(t.input.d) t.angle += 0.05;
-        const accel = 0.5, friction = 0.85;
-        if(t.input.w) { t.vx += Math.cos(t.angle)*accel; t.vy += Math.sin(t.angle)*accel; }
-        if(t.input.s) { t.vx -= Math.cos(t.angle)*accel; t.vy -= Math.sin(t.angle)*accel; }
-        t.vx *= friction; t.vy *= friction;
-        t.x += t.vx; t.y += t.vy;
-        t.turretAngle = t.input.turretAngle || t.angle;
-
-        gameState.obstacles.forEach(o => {
-            if(t.x+20 > o.x && t.x-20 < o.x+o.w && t.y+20 > o.y && t.y-20 < o.y+o.h) {
-                t.x -= t.vx*1.2; t.y -= t.vy*1.2; t.vx = 0; t.vy = 0;
-            }
-        });
-
-        let weapon = WEAPONS[t.input.weapon-1] || WEAPONS[0];
-        if(t.input.shoot && performance.now() - t.lastShot > weapon.reload) {
-            t.lastShot = performance.now();
-            
-            // REKYYLI KORJAUS: Lisätään välitön "tömäys" taaksepäin
-            // weapon.recoil on Machine Gunilla 3 ja Giantilla 50.
-            // Kerroin 0.8 siirtää Giantilla tankkia noin 40 pikseliä taaksepäin heti.
-            const kickBack = weapon.recoil * 0.8;
-            t.x -= Math.cos(t.turretAngle) * kickBack;
-            t.y -= Math.sin(t.turretAngle) * kickBack;
-            
-            // Lisätään myös liike-energiaa
-            t.vx -= Math.cos(t.turretAngle) * (weapon.recoil * 0.2);
-            t.vy -= Math.sin(t.turretAngle) * (weapon.recoil * 0.2);
-
-            if(weapon.shake > localShake) localShake = weapon.shake;
-            gameState.bullets.push({
-                x: t.x + Math.cos(t.turretAngle)*30, y: t.y + Math.sin(t.turretAngle)*30,
-                vx: Math.cos(t.turretAngle)*weapon.speed, vy: Math.sin(t.turretAngle)*weapon.speed,
-                owner: t.id, weapon, life: 150
-            });
-        }
+let menuPeer=null;
+function initPeerForMenu(){
+  const dot=document.getElementById('peer-dot');
+  const txt=document.getElementById('peer-text');
+  try{
+    menuPeer=new Peer();
+    menuPeer.on('open',id=>{
+      dot.classList.remove('off');txt.innerHTML='Online &mdash; ID: ';
+      const row=document.createElement('span');row.className='peer-id-row';
+      row.innerHTML=`<span class="peer-id-text" id="menu-pid">${esc(id)}</span><button class="copy-btn" onclick="copyMenuId()">Copy</button>`;
+      txt.appendChild(row);
     });
-
-    for(let i=gameState.bullets.length-1; i>=0; i--) {
-        let b = gameState.bullets[i]; b.x += b.vx; b.y += b.vy; b.life--;
-        let hit = false;
-        gameState.obstacles.forEach(o => { if(b.x > o.x && b.x < o.x+o.w && b.y > o.y && b.y < o.y+o.h) hit = true; });
-        Object.values(gameState.tanks).forEach(t => {
-            if(t.hp > 0 && t.id !== b.owner && Math.hypot(t.x-b.x, t.y-b.y) < 25) {
-                t.hp -= b.weapon.damage; hit = true;
-                if(b.weapon.splash > 0) {
-                    Object.values(gameState.tanks).forEach(t2 => {
-                        let d = Math.hypot(t2.x-b.x, t2.y-b.y);
-                        if(d < b.weapon.splash) t2.hp -= b.weapon.damage * (1-d/b.weapon.splash);
-                    });
-                }
-            }
-        });
-        if(hit || b.life <= 0) gameState.bullets.splice(i, 1);
-    }
-
-    let alive = Object.values(gameState.tanks).filter(t => t.hp > 0);
-    if(alive.length <= 1 && Object.keys(gameState.tanks).length > 1) {
-        gameState.roundActive = false;
-        if(alive.length === 1) {
-            gameState.scores[alive[0].id]++;
-            if(gameState.scores[alive[0].id] >= gameState.boLimit) {
-                broadcast({ type: 'matchOver', winnerName: alive[0].name });
-                document.getElementById('winnerText').innerText = `${alive[0].name} WINS!`;
-                showUI('match-over'); gameState.status = 'gameover'; return;
-            }
-        }
-        setTimeout(() => { if(gameState.status === 'playing') startRound(); }, 3000);
-    }
-    broadcast({ type: 'sync', tanks: gameState.tanks, bullets: gameState.bullets, particles: gameState.particles, scores: gameState.scores, shake: localShake });
-}
-
-/** * RENDERÖINTI */
-function updateHUD() {
-    let t = gameState.tanks[localPlayerId]; if(!t) return;
-    document.getElementById('hpDisplay').innerText = `HP: ${Math.max(0, Math.floor(t.hp))}`;
-    let w = WEAPONS[localInput.weapon-1] || WEAPONS[0];
-    document.getElementById('weaponDisplay').innerText = `Weapon: ${w.name}`;
-    let ready = performance.now() - t.lastShot > w.reload;
-    document.getElementById('reloadDisplay').innerText = ready ? "READY" : "RELOADING...";
-    document.getElementById('scoreBoard').innerText = Object.values(gameState.tanks).map(p => `${p.name}: ${gameState.scores[p.id]||0}`).join(' | ') + ` (BO${gameState.boLimit})`;
-}
-
-function render() {
-    ctx.fillStyle = '#111'; ctx.fillRect(0,0,cw,ch);
-    if(gameState.status !== 'playing') return;
-    let me = gameState.tanks[localPlayerId];
-    if(me) {
-        let worldX = camera.x + (localInput.mx - cw/2), worldY = camera.y + (localInput.my - ch/2);
-        localInput.turretAngle = Math.atan2(worldY - me.y, worldX - me.x);
-        if(isHost) me.input = { ...localInput }; else if(hostConn?.open) hostConn.send({ type: 'input', input: localInput });
-        camera.x += (me.x - camera.x)*0.1; camera.y += (me.y - camera.y)*0.1;
-    }
-    let sx = (Math.random()-0.5)*camera.shake, sy = (Math.random()-0.5)*camera.shake; camera.shake *= 0.9;
-    ctx.save(); ctx.translate(cw/2-camera.x+sx, ch/2-camera.y+sy);
-    ctx.strokeStyle = '#222'; for(let i=0; i<WORLD_SIZE; i+=100) { ctx.strokeRect(i,0,100,WORLD_SIZE); ctx.strokeRect(0,i,WORLD_SIZE,100); }
-    gameState.obstacles.forEach(o => { ctx.fillStyle='#333'; ctx.fillRect(o.x,o.y,o.w,o.h); ctx.strokeStyle='#555'; ctx.strokeRect(o.x,o.y,o.w,o.h); });
-    gameState.bullets.forEach(b => { ctx.fillStyle='#ffaa00'; ctx.beginPath(); ctx.arc(b.x,b.y,b.weapon.radius,0,Math.PI*2); ctx.fill(); });
-    Object.values(gameState.tanks).forEach(t => {
-        if(t.hp <= 0) return;
-        ctx.save(); ctx.translate(t.x, t.y);
-        ctx.fillStyle='#fff'; ctx.fillText(t.name, 0, -35);
-        ctx.fillStyle='#f00'; ctx.fillRect(-20,-30,40,4); ctx.fillStyle='#0f0'; ctx.fillRect(-20,-30,40*(t.hp/100),4);
-        ctx.rotate(t.angle); ctx.fillStyle=t.color; ctx.fillRect(-20,-15,40,30); ctx.fillStyle='#222'; ctx.fillRect(10,-10,10,20);
-        ctx.restore();
-        ctx.save(); ctx.translate(t.x,t.y); ctx.rotate(t.turretAngle); ctx.fillStyle='#555'; ctx.fillRect(0,-5,35,10);
-        ctx.fillStyle='#777'; ctx.beginPath(); ctx.arc(0,0,12,0,Math.PI*2); ctx.fill(); ctx.restore();
+    menuPeer.on('error',()=>{
+      dot.classList.remove('off');dot.classList.add('off');txt.textContent='PeerJS connection failed';
     });
-    ctx.restore();
-    mctx.fillStyle='#000'; mctx.fillRect(0,0,150,150);
-    const s = 150/WORLD_SIZE;
-    gameState.obstacles.forEach(o => { mctx.fillStyle='#444'; mctx.fillRect(o.x*s,o.y*s,o.w*s,o.h*s); });
-    Object.values(gameState.tanks).forEach(t => { if(t.hp>0) { mctx.fillStyle=t.color; mctx.fillRect(t.x*s-2,t.y*s-2,4,4); } });
+  }catch(e){txt.textContent='PeerJS not loaded'}
+}
+function copyMenuId(){
+  const el=document.getElementById('menu-pid');if(!el)return;
+  navigator.clipboard.writeText(el.textContent).then(()=>toast('ID copied')).catch(()=>{
+    const r=document.createRange();r.selectNode(el);window.getSelection().removeAllRanges();window.getSelection().addRange(r);document.execCommand('copy');toast('ID copied');
+  });
 }
 
-function loop() { if(isHost) hostUpdate(); render(); requestAnimationFrame(loop); }
-loop();
+/* ===== LOBBY ===== */
+function renderHostLobby(peerId){
+  const box=document.getElementById('lobby-box');
+  box.innerHTML=`
+    <div class="lobby-title">Lobby</div>
+    <div class="lobby-info">Your Game ID:</div>
+    <div class="id-box"><span class="id-text" id="lobby-pid">${esc(peerId)}</span><button class="id-copy" onclick="copyLobbyId()">Copy</button></div>
+    <div class="lobby-info" style="margin-top:4px">Share this ID with the other player.</div>
+    <div class="lobby-div"></div>
+    <div class="lobby-settings"><span>Map: ${G.mapW}x${G.mapH}</span><span>Best of ${G.settings.bestOf}</span></div>
+    <div class="lobby-div"></div>
+    <div class="player-list" id="host-players">
+      <div class="player-row"><span class="pdot" style="background:var(--p1)"></span><span class="pname">${esc(net.myName)} <span class="prole">(Host)</span></span></div>
+      <div class="player-row"><span class="pdot" style="background:var(--muted)"></span><span class="pname" style="color:var(--muted)">Waiting for player...</span></div>
+    </div>
+    <button class="lobby-btn" id="btn-start" onclick="hostStart()">Start Game</button>
+    <button class="lobby-btn lobby-btn-sec" onclick="backToMenu()">Cancel</button>`;
+}
+function copyLobbyId(){
+  const el=document.getElementById('lobby-pid');if(!el)return;
+  navigator.clipboard.writeText(el.textContent).then(()=>toast('ID copied')).catch(()=>{
+    const r=document.createRange();r.selectNode(el);window.getSelection().removeAllRanges();window.getSelection().addRange(r);document.execCommand('copy');toast('ID copied');
+  });
+}
+function updateHostPlayers(){
+  const el=document.getElementById('host-players');if(!el)return;
+  const has=net.connected&&net.peerName;
+  el.innerHTML=`
+    <div class="player-row"><span class="pdot" style="background:var(--p1)"></span><span class="pname">${esc(net.myName)} <span class="prole">(Host)</span></span></div>
+    <div class="player-row"><span class="pdot" style="background:${has?'var(--p2)':'var(--muted)'}"></span><span class="pname" style="color:${has?'var(--fg)':'var(--muted)'}">${has?esc(net.peerName):'Waiting for player...'}</span>${has?'<button class="kick-btn" onclick="hostKick()">Kick</button>':''}</div>`;
+  const btn=document.getElementById('btn-start');if(btn)btn.disabled=!has;
+}
+function renderJoinInputLobby(){
+  const box=document.getElementById('lobby-box');
+  box.innerHTML=`
+    <div class="lobby-title">Join Game</div>
+    <div class="lobby-info">Enter the host's Game ID:</div>
+    <input class="join-input" id="join-id-inp" placeholder="Paste host ID here..." autocomplete="off">
+    <button class="lobby-btn" id="btn-do-join">Connect</button>
+    <button class="lobby-btn lobby-btn-sec" onclick="backToMenu()">Cancel</button>`;
+  document.getElementById('btn-do-join').addEventListener('click',doOnlineJoin);
+  document.getElementById('join-id-inp').addEventListener('keydown',e=>{if(e.key==='Enter')doOnlineJoin()});
+}
+function doOnlineJoin(){
+  const inp=document.getElementById('join-id-inp');const btn=document.getElementById('btn-do-join');
+  const hostId=inp.value.trim();if(!hostId){toast('Enter the host ID first',true);inp.focus();return}
+  btn.disabled=true;btn.textContent='Connecting...';
+  net.join(hostId,menuCfg.name).then(()=>{
+    renderJoinerLobby();
+  }).catch(e=>{
+    console.error('Join error:',e);btn.disabled=false;btn.textContent='Connect';
+    if(e.type==='peer-unavailable')toast('Host not found. Check the ID.',true);
+    else toast('Connection failed: '+e.type,true);
+  });
+}
+function renderJoinerLobby(){
+  const box=document.getElementById('lobby-box');
+  box.innerHTML=`
+    <div class="lobby-title">Lobby</div>
+    <div class="lobby-info">Connected to <strong>${esc(net.peerName||'Host')}</strong></div>
+    <div class="lobby-settings"><span>Map: ${G.mapW}x${G.mapH}</span><span>Best of ${G.settings.bestOf}</span></div>
+    <div class="lobby-div"></div>
+    <div class="player-list">
+      <div class="player-row"><span class="pdot" style="background:var(--p1)"></span><span class="pname">${esc(net.peerName||'Host')} <span class="prole">(Host)</span></span></div>
+      <div class="player-row"><span class="pdot" style="background:var(--p2)"></span><span class="pname">${esc(net.myName)}</span></div>
+    </div>
+    <div class="lobby-status"><div class="spinner"></div><p>Waiting for host to start...</p></div>
+    <button class="lobby-btn lobby-btn-sec" onclick="backToMenu()">Leave</button>`;
+}
+function hostStart(){if(!net.connected)return;net.send({type:'start_game'});startGame()}
+function hostKick(){if(!net.connected)return;const n=net.peerName;net.kick();toast(n+' was kicked');updateHostPlayers()}
 
-document.getElementById('btnBackToMenu').onclick = () => location.reload();
+/* ===== NET HANDLER ===== */
+function setupNetHandler(){
+  net.onPlayerJoin=(name)=>{toast(name+' joined');updateHostPlayers()};
+  net.onKickDone=()=>{updateHostPlayers()};
+  net.onDisc=()=>{
+    if(G.state==='playing'||G.state==='countdown'||G.state==='roundEnd'){
+      showOL(`<div class="ol-title" style="color:var(--danger)">DISCONNECTED</div><div class="ol-sub">${esc(net.peerName||'Player')} left.</div><button class="ol-btn" onclick="backToMenu()">Back to Menu</button>`);G.state='gameEnd';
+    }else if(document.getElementById('lobby-screen').classList.contains('active')){
+      if(net.isHost)updateHostPlayers();else{toast('Disconnected from host',true);setTimeout(()=>backToMenu(),500)}
+    }
+  };
+  net.onMsg=(d)=>{
+    lastRemoteTime=performance.now();
+    if(d.type==='state'&&G.remTank){G.remTank.x=d.x;G.remTank.y=d.y;G.remTank.ba=d.ba;G.remTank.ta=d.ta;G.remTank.hp=d.hp;G.remTank.alive=d.alive;G.remTank.moving=d.moving;G.remTank.tp=d.tp}
+    if(d.type==='fire'){G.projectiles.push({x:d.x,y:d.y,vx:d.vx,vy:d.vy,own:d.own,dmg:d.dmg,life:180});G.mFlash[d.own]=performance.now();snd.fire(CFG.GUNS[0])}
+    if(d.type==='dead'){if(G.remTank){G.remTank.alive=false;boom(G.remTank.x,G.remTank.y);snd.explode();G.shake=12}checkRoundEnd()}
+    if(d.type==='next_round'){initRound()}
+  };
+}
+
+/* ===== START GAME ===== */
+function startGame(){
+  const m=CFG.MAPS[G.mapKey];G.mapW=m.w;G.mapH=m.h;
+  G.obstacles=genObs(G.mapW,G.mapH);G.groundCvs=mkGround(G.mapW,G.mapH);
+  G.scores=[0,0];G.round=0;G.cam={x:0,y:0};lastRemoteTime=performance.now();
+  showScr('game-screen');resizeCanvas();initRound();
+  lastT=performance.now();if(raf)cancelAnimationFrame(raf);gameLoop(lastT);
+}
+
+/* ===== GAME LOOP ===== */
+function gameLoop(ts){
+  raf=requestAnimationFrame(gameLoop);lastT=ts;
+  if(G.state==='countdown'){
+    const elapsed=ts-G.cdTime;const nv=3-Math.floor(elapsed/1000);
+    if(nv!==G.cdVal&&nv>0){G.cdVal=nv;showCD(nv)}
+    if(elapsed>=3500){hideOL();G.state='playing';lastRemoteTime=performance.now()}
+    if(G.myTank){const inp=getInput();updateTank(G.myTank,inp);if(G.myTank.moving)snd.clank()}
+    render();return;
+  }
+  if(G.state==='playing'){
+    const inp=getInput();updateTank(G.myTank,inp);
+    if(G.myTank.moving)snd.clank();
+    if(mDown)tryFire();
+    updateReload(net.myId);
+    if(G.myTank){const wmx=mx+G.cam.x,wmy=my+G.cam.y;const target=Math.atan2(wmy-G.myTank.y,wmx-G.myTank.x);let diff=Math.abs(target-G.myTank.ta);if(diff>Math.PI)diff=2*Math.PI-diff;if(diff>.01&&ts-lastGrindT>120){snd.grind();lastGrindT=ts}}
+    updateProj();updatePart();
+    net.send({type:'state',x:G.myTank.x,y:G.myTank.y,ba:G.myTank.ba,ta:G.myTank.ta,hp:G.myTank.hp,alive:G.myTank.alive,moving:G.myTank.moving,tp:G.myTank.tp});
+    if(lastRemoteTime>0&&performance.now()-lastRemoteTime>5000){
+      toast('Player disconnected',true);showOL(`<div class="ol-title" style="color:var(--danger)">DISCONNECTED</div><div class="ol-sub">${esc(net.peerName)} left.</div><button class="ol-btn" onclick="backToMenu()">Back to Menu</button>`);G.state='gameEnd';
+    }
+    render();updateHUD();updateWeaponHUD();return;
+  }
+  if(G.state==='roundEnd'){updatePart();render();if(net.isHost&&ts-G.reTime>3000&&G.state!=='gameEnd'){initRound();net.send({type:'next_round'})}return}
+  if(G.state==='gameEnd'){updatePart();render();return}
+}
+function getInput(){return{u:!!keys['w']||!!keys['arrowup'],d:!!keys['s']||!!keys['arrowdown'],l:!!keys['a']||!!keys['arrowleft'],r:!!keys['d']||!!keys['arrowright']}}
+
+/* ===== CANVAS ===== */
+function resizeCanvas(){if(!canvas)return;canvas.width=window.innerWidth;canvas.height=window.innerHeight}
+
+/* ===== INPUT ===== */
+function setupInput(){
+  window.addEventListener('keydown',e=>{
+    const k=e.key.toLowerCase();keys[k]=true;
+    if(['arrowup','arrowdown','arrowleft','arrowright',' '].includes(k))e.preventDefault();
+    if(k>='1'&&k<='4'&&G.state==='playing'){const idx=parseInt(k)-1;if(idx<CFG.GUNS.length)switchGun(idx)}
+  });
+  window.addEventListener('keyup',e=>{keys[e.key.toLowerCase()]=false});
+  window.addEventListener('mousemove',e=>{mx=e.clientX;my=e.clientY});
+  window.addEventListener('mousedown',e=>{if(e.button===0){mDown=true;snd.resume()}});
+  window.addEventListener('mouseup',e=>{if(e.button===0)mDown=false});
+  window.addEventListener('resize',()=>{if(canvas)resizeCanvas()});
+  window.addEventListener('contextmenu',e=>e.preventDefault());
+}
+
+/* ===== INIT ===== */
+function init(){
+  canvas=document.getElementById('game-canvas');ctx=canvas.getContext('2d');
+  setupMenu();setupInput();setupNetHandler();
+}
+window.addEventListener('DOMContentLoaded',init);
 </script>
 </body>
 </html>
